@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+:root {
+  --accent: #dc2626;
+  --accent-dark: #b91c1c;
+  --accent-soft: #fef2f2;
+  --brand: var(--accent);
+  --brand-dark: var(--accent-dark);
+  --brand-light: #ef4444;
+  --surface: #f4f4f5;
+  --card: #ffffff;
+  --border: #e4e4e7;
+  --muted: #71717a;
+  --foreground: #18181b;
+  --scanner-green: #16a34a;
+  --scanner-green-glow: rgba(22, 163, 74, 0.4);
+}
+
+@theme inline {
+  --color-accent: var(--accent);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-soft: var(--accent-soft);
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-light: var(--brand-light);
+  --color-surface: var(--surface);
+  --font-sans: var(--font-geist-sans);
+}
+
+body {
+  background: var(--surface);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+@media (min-width: 640px) {
+  button,
+  input,
+  select,
+  textarea {
+    font-size: inherit;
+  }
+}
+
+.app-card {
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+
+.btn-primary {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  background: var(--accent);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-dark);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+}
+
+.barcode-scanner-view {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.barcode-scanner-view img,
+.barcode-scanner-view input,
+.barcode-scanner-view button,
+.barcode-scanner-view a,
+.barcode-scanner-view #html5-qrcode-anchor-scan-type-change {
+  display: none !important;
+}
+
+.barcode-scanner-preview video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+.barcode-scanner-preview canvas {
+  display: none !important;
+}
+
+@keyframes barcode-scan-sweep {
+  0%,
+  100% {
+    top: 12%;
+    opacity: 0.5;
+  }
+  50% {
+    top: 88%;
+    opacity: 1;
+  }
+}
+
+.barcode-scan-line {
+  animation: barcode-scan-sweep 2s ease-in-out infinite;
+}
