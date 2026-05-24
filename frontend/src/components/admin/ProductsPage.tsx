@@ -24,6 +24,7 @@ import AdminModal from "./AdminModal";
 import AdminIconButton from "./AdminIconButton";
 import { IconEdit, IconTrash } from "./AdminIcons";
 import NumericField from "@/components/NumericField";
+import BarcodeScanner from "@/components/BarcodeScanner";
 import { formatNumericInput, parseNumericInput } from "@/lib/numeric-input";
 
 type FormMode = { type: "create" } | { type: "edit"; product: Product };
@@ -210,6 +211,14 @@ export default function ProductsPage({
     }
   };
 
+  const handleBarcodeScan = useCallback(async (code: string) => {
+    const q = code.trim();
+    if (!q) return;
+    setSearch(q);
+    setDebouncedSearch(q);
+    setPage(1);
+  }, []);
+
   const createButton = canCreate ? (
     <button type="button" onClick={openCreate} className="admin-btn-primary">
       + Yeni ürün
@@ -221,38 +230,49 @@ export default function ProductsPage({
   return (
     <div className={`admin-page admin-page-wide${isEmployee ? " employee-page" : ""}`}>
       <div className="admin-toolbar-card">
-        <div className="admin-search-wrap">
-          <svg
-            className="admin-search-icon"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Stok kodu, barkod, ürün adı veya grup ara…"
-            className="admin-input admin-search-input"
-            autoComplete="off"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="admin-search-clear"
-              aria-label="Aramayı temizle"
-            >
-              ×
-            </button>
-          )}
+        <div className="admin-toolbar-search-block">
+          <div className="admin-search-row">
+            <div className="admin-search-wrap">
+              <svg
+                className="admin-search-icon"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Stok kodu, barkod, ürün adı veya grup ara…"
+                className="admin-input admin-search-input"
+                autoComplete="off"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="admin-search-clear"
+                  aria-label="Aramayı temizle"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            <div className="admin-search-scan">
+              <BarcodeScanner
+                mode="icon"
+                variant="default"
+                onScan={handleBarcodeScan}
+              />
+            </div>
+          </div>
         </div>
         <div className="admin-toolbar-end">
           {createButton}

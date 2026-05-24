@@ -1,15 +1,17 @@
 import crypto from "crypto";
 
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const ADMIN_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const EMPLOYEE_REMEMBER_TTL_MS = 24 * 60 * 60 * 1000;
+export const EMPLOYEE_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
-type AdminSession = { createdAt: number };
-type EmployeeSession = { employeeId: number; createdAt: number };
+type AdminSession = { createdAt: number; ttlMs: number };
+type EmployeeSession = { employeeId: number; createdAt: number; ttlMs: number };
 
 const adminSessions = new Map<string, AdminSession>();
 const employeeSessions = new Map<string, EmployeeSession>();
 
-function isExpired(createdAt: number): boolean {
-  return Date.now() - createdAt > SESSION_TTL_MS;
+function isExpired(session: { createdAt: number; ttlMs: number }): boolean {
+  return Date.now() - session.createdAt > session.ttlMs;
 }
 
 function createToken(): string {
@@ -18,7 +20,7 @@ function createToken(): string {
 
 export function createAdminSession(): string {
   const token = createToken();
-  adminSessions.set(token, { createdAt: Date.now() });
+  adminSessions.set(token, { createdAt: Date.now(), ttlMs: ADMIN_SESSION_TTL_MS });
   return token;
 }
 
@@ -26,7 +28,7 @@ export function validateAdminSession(token: string | undefined): boolean {
   if (!token) return false;
   const session = adminSessions.get(token);
   if (!session) return false;
-  if (isExpired(session.createdAt)) {
+  if (isExpired(session)) {
     adminSessions.delete(token);
     return false;
   }
@@ -37,9 +39,12 @@ export function revokeAdminSession(token: string | undefined): void {
   if (token) adminSessions.delete(token);
 }
 
-export function createEmployeeSession(employeeId: number): string {
+export function createEmployeeSession(
+  employeeId: number,
+  ttlMs = EMPLOYEE_SESSION_TTL_MS
+): string {
   const token = createToken();
-  employeeSessions.set(token, { employeeId, createdAt: Date.now() });
+  employeeSessions.set(token, { employeeId, createdAt: Date.now(), ttlMs });
   return token;
 }
 
@@ -49,7 +54,7 @@ export function validateEmployeeSession(
   if (!token) return null;
   const session = employeeSessions.get(token);
   if (!session) return null;
-  if (isExpired(session.createdAt)) {
+  if (isExpired(session)) {
     employeeSessions.delete(token);
     return null;
   }

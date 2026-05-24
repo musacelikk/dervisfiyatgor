@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { EMPLOYEE_ENTRY_PATH, getStoreUrl, shouldShowStoreLink } from "@/lib/domains";
+import {
+  readEmployeeRememberPref,
+  writeEmployeeRememberPref,
+} from "@/lib/employee-remember";
 import { managerLogin } from "@/lib/manager-api";
 
 function EmployeeLoginFormInner() {
@@ -12,12 +16,14 @@ function EmployeeLoginFormInner() {
   const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showStoreLink, setShowStoreLink] = useState(false);
 
   useEffect(() => {
     setShowStoreLink(shouldShowStoreLink(window.location.hostname));
+    setRememberMe(readEmployeeRememberPref());
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,7 +32,8 @@ function EmployeeLoginFormInner() {
     setError(null);
 
     try {
-      await managerLogin(username, password);
+      writeEmployeeRememberPref(rememberMe);
+      await managerLogin(username, password, rememberMe);
       const from = searchParams.get("from") || EMPLOYEE_ENTRY_PATH;
       router.push(from);
       router.refresh();
@@ -79,6 +86,16 @@ function EmployeeLoginFormInner() {
                 required
               />
             </div>
+
+            <label className="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-600">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-zinc-300 text-accent focus:ring-accent/30"
+              />
+              Beni hatırla (1 gün)
+            </label>
 
             {error && (
               <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200/80">

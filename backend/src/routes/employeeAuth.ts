@@ -5,6 +5,7 @@ import { getAuditContext } from "../lib/auditContext";
 import { logAuditFromContext } from "../services/audit";
 import {
   createEmployeeSession,
+  EMPLOYEE_REMEMBER_TTL_MS,
   revokeEmployeeSession,
   validateEmployeeSession,
 } from "../services/sessions";
@@ -23,6 +24,7 @@ function sessionToken(req: { headers: Record<string, unknown> }): string {
 router.post("/login", async (req, res) => {
   const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";
   const password = typeof req.body?.password === "string" ? req.body.password : "";
+  const rememberMe = req.body?.rememberMe === true;
 
   if (!username || !password) {
     res.status(400).json({ error: "Kullanıcı adı ve şifre gerekli." });
@@ -59,8 +61,11 @@ router.post("/login", async (req, res) => {
     }
   );
 
-  const token = createEmployeeSession(employee.id);
-  res.json({ employee, token });
+  const token = createEmployeeSession(
+    employee.id,
+    rememberMe ? EMPLOYEE_REMEMBER_TTL_MS : undefined
+  );
+  res.json({ employee, token, rememberMe });
 });
 
 router.post("/verify", (req, res) => {

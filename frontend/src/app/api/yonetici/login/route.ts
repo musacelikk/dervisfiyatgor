@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   MANAGER_COOKIE,
 } from "@/lib/manager-session";
+import { EMPLOYEE_REMEMBER_MAX_AGE_SEC } from "@/lib/employee-remember";
 import { backendFetchWithSession } from "@/lib/admin-backend";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -10,6 +11,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const username = typeof body.username === "string" ? body.username.trim() : "";
   const password = typeof body.password === "string" ? body.password : "";
+  const rememberMe = body.rememberMe === true;
 
   if (!username || !password) {
     return NextResponse.json(
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
     res = await fetch(`${API_URL}/api/auth/employee/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, rememberMe }),
     });
   } catch {
     return NextResponse.json(
@@ -46,13 +48,21 @@ export async function POST(request: Request) {
   }
 
   const response = NextResponse.json({ success: true, employee });
-  response.cookies.set(MANAGER_COOKIE, token, {
+  const cookieOptions = {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  };
+
+  if (rememberMe) {
+    response.cookies.set(MANAGER_COOKIE, token, {
+      ...cookieOptions,
+      maxAge: EMPLOYEE_REMEMBER_MAX_AGE_SEC,
+    });
+  } else {
+    response.cookies.set(MANAGER_COOKIE, token, cookieOptions);
+  }
 
   return response;
 }
