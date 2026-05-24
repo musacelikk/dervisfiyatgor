@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import ScannerFrame from "@/components/ScannerFrame";
 import { readScannerFlashPref, writeScannerFlashPref } from "@/lib/scanner-flash";
@@ -42,10 +43,15 @@ export default function BarcodeScanner({
   const [flashOn, setFlashOn] = useState(() => readScannerFlashPref());
   const [flashSupported, setFlashSupported] = useState(false);
   const [flashBusy, setFlashBusy] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
 
   useEffect(() => {
     onScanRef.current = onScan;
   }, [onScan]);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   const stopScanner = useCallback(async () => {
     const scanner = scannerRef.current;
@@ -191,6 +197,97 @@ export default function BarcodeScanner({
     };
   }, [stopScanner]);
 
+  const scannerOverlay =
+    scanning && portalReady ? (
+      <div
+        className="barcode-scanner-overlay fixed inset-0 flex flex-col bg-zinc-950"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Barkod tarama"
+      >
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <div
+            id={containerId}
+            className="barcode-scanner-view barcode-scanner-preview absolute inset-0 z-0"
+          />
+
+          {!starting && !resolving && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
+              <div className="relative h-[38vw] max-h-40 w-[88%] max-w-sm">
+                <span className="absolute left-0 top-0 h-8 w-8 rounded-tl-md border-l-[3px] border-t-[3px] border-[var(--scanner-green)]" />
+                <span className="absolute right-0 top-0 h-8 w-8 rounded-tr-md border-r-[3px] border-t-[3px] border-[var(--scanner-green)]" />
+                <span className="absolute bottom-0 left-0 h-8 w-8 rounded-bl-md border-b-[3px] border-l-[3px] border-[var(--scanner-green)]" />
+                <span className="absolute bottom-0 right-0 h-8 w-8 rounded-br-md border-b-[3px] border-r-[3px] border-[var(--scanner-green)]" />
+                <span className="barcode-scan-line absolute left-2 right-2 top-1/2 h-0.5 -translate-y-1/2 bg-[var(--scanner-green)]" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="barcode-scanner-controls">
+          <button
+            type="button"
+            disabled={resolving}
+            onClick={() => void exitScanMode()}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition hover:bg-black/60 disabled:opacity-40"
+            aria-label="Geri"
+          >
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19 8 12l7-7" />
+            </svg>
+          </button>
+
+          {flashSupported && (
+            <button
+              type="button"
+              disabled={flashBusy || resolving}
+              onClick={() => void toggleFlash()}
+              className={`flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-sm transition disabled:opacity-40 ${
+                flashOn
+                  ? "bg-amber-400/90 text-zinc-950 hover:bg-amber-300"
+                  : "bg-black/45 text-white hover:bg-black/60"
+              }`}
+              aria-label={flashOn ? "Flaşı kapat" : "Flaşı aç"}
+              aria-pressed={flashOn}
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M13 10V3L4 14h7v7l9-11h-7Z"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <div className="relative z-20 shrink-0 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 text-center text-white">
+          <p className="text-base font-semibold">Barkod okut</p>
+          <p className="mt-1 text-xs text-zinc-400">
+            {resolving
+              ? "Ürün aranıyor…"
+              : starting
+                ? "Kamera açılıyor…"
+                : "Barkodu çerçeveye hizalayın"}
+          </p>
+        </div>
+      </div>
+    ) : null;
+
   return (
     <>
       {mode === "icon" ? (
@@ -278,95 +375,7 @@ export default function BarcodeScanner({
         </ScannerFrame>
       )}
 
-      {scanning && (
-        <div
-          className="fixed inset-0 z-[60] flex flex-col bg-zinc-950"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Barkod tarama"
-        >
-          <div className="relative min-h-0 flex-1 overflow-hidden">
-            <div className="absolute left-0 top-0 z-20 flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-              <button
-                type="button"
-                disabled={resolving}
-                onClick={() => void exitScanMode()}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition hover:bg-black/60 disabled:opacity-40"
-                aria-label="Geri"
-              >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  aria-hidden
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19 8 12l7-7" />
-                </svg>
-              </button>
-
-              {flashSupported && (
-                <button
-                  type="button"
-                  disabled={flashBusy || resolving}
-                  onClick={() => void toggleFlash()}
-                  className={`flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-sm transition disabled:opacity-40 ${
-                    flashOn
-                      ? "bg-amber-400/90 text-zinc-950 hover:bg-amber-300"
-                      : "bg-black/45 text-white hover:bg-black/60"
-                  }`}
-                  aria-label={flashOn ? "Flaşı kapat" : "Flaşı aç"}
-                  aria-pressed={flashOn}
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    aria-hidden
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M13 10V3L4 14h7v7l9-11h-7Z"
-                    />
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            <div
-              id={containerId}
-              className="barcode-scanner-view barcode-scanner-preview absolute inset-0"
-            />
-
-            {!starting && !resolving && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-                <div className="relative h-[38vw] max-h-40 w-[88%] max-w-sm">
-                  <span className="absolute left-0 top-0 h-8 w-8 rounded-tl-md border-l-[3px] border-t-[3px] border-[var(--scanner-green)]" />
-                  <span className="absolute right-0 top-0 h-8 w-8 rounded-tr-md border-r-[3px] border-t-[3px] border-[var(--scanner-green)]" />
-                  <span className="absolute bottom-0 left-0 h-8 w-8 rounded-bl-md border-b-[3px] border-l-[3px] border-[var(--scanner-green)]" />
-                  <span className="absolute bottom-0 right-0 h-8 w-8 rounded-br-md border-b-[3px] border-r-[3px] border-[var(--scanner-green)]" />
-                  <span className="barcode-scan-line absolute left-2 right-2 top-1/2 h-0.5 -translate-y-1/2 bg-[var(--scanner-green)]" />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="shrink-0 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 text-center text-white">
-            <p className="text-base font-semibold">Barkod okut</p>
-            <p className="mt-1 text-xs text-zinc-400">
-              {resolving
-                ? "Ürün aranıyor…"
-                : starting
-                  ? "Kamera açılıyor…"
-                  : "Barkodu çerçeveye hizalayın"}
-            </p>
-          </div>
-        </div>
-      )}
+      {scannerOverlay && portalReady && createPortal(scannerOverlay, document.body)}
     </>
   );
 }

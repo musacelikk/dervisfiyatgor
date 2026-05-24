@@ -84,6 +84,26 @@ textarea {
   opacity: 0.5;
 }
 
+.barcode-scanner-overlay {
+  z-index: 100;
+}
+
+.barcode-scanner-controls {
+  position: absolute;
+  top: max(0.75rem, env(safe-area-inset-top));
+  left: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  pointer-events: none;
+}
+
+.barcode-scanner-controls > button {
+  pointer-events: auto;
+}
+
 .barcode-scanner-view {
   width: 100% !important;
   height: 100% !important;
