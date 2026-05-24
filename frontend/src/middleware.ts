@@ -7,6 +7,7 @@ import {
   getAdminHost,
   getEmployeeHost,
   getStoreHost,
+  hostsConfigured,
   isAdminPanelPath,
   isEmployeePanelPath,
   normalizeHost,
@@ -22,6 +23,16 @@ function isStaticOrApi(pathname: string): boolean {
   );
 }
 
+function redirectToHost(host: string, request: NextRequest, pathname: string): NextResponse {
+  const url = new URL(request.url);
+  url.hostname = host;
+  url.pathname = pathname;
+  url.search = request.nextUrl.search;
+  url.port = "";
+  url.protocol = "https:";
+  return NextResponse.redirect(url);
+}
+
 function applySubdomainRouting(request: NextRequest): NextResponse | null {
   const host = normalizeHost(request.headers.get("host"));
   const storeHost = getStoreHost();
@@ -35,6 +46,22 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
 
   if (isStaticOrApi(pathname)) {
     return null;
+  }
+
+  // Panel rotaları yalnızca kendi subdomain'inde (fiyatgor'dan erişilemez)
+  if (hostsConfigured()) {
+    if (isAdminPanelPath(pathname) && adminHost && host !== adminHost) {
+      if (storeHost && host === storeHost) {
+        return NextResponse.redirect(new URL("/", request.url));
+      }
+      return redirectToHost(adminHost, request, pathname);
+    }
+    if (isEmployeePanelPath(pathname) && employeeHost && host !== employeeHost) {
+      if (storeHost && host === storeHost) {
+        return NextResponse.redirect(new URL("/", request.url));
+      }
+      return redirectToHost(employeeHost, request, pathname);
+    }
   }
 
   // fiyatgor → yalnızca mağaza (/)

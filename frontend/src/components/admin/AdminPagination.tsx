@@ -12,6 +12,7 @@ interface AdminPaginationProps {
   pageSize: PageSizeOption;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: PageSizeOption) => void;
+  pageSizeOptions?: readonly PageSizeOption[];
 }
 
 function pageSizeLabel(size: PageSizeOption): string {
@@ -25,6 +26,7 @@ export default function AdminPagination({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
 }: AdminPaginationProps) {
   const showPager = pageSize !== "all" && totalPages > 1;
 
@@ -40,7 +42,7 @@ export default function AdminPagination({
           onChange={(e) => onPageSizeChange(e.target.value as PageSizeOption)}
           className="admin-select"
         >
-          {PAGE_SIZE_OPTIONS.map((size) => (
+          {pageSizeOptions.map((size) => (
             <option key={size} value={size}>
               {pageSizeLabel(size)}
             </option>

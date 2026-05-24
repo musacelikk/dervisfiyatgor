@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import AdminPageHeader from "./AdminPageHeader";
+import AdminPagination from "./AdminPagination";
 import { fetchAuditLogs, fetchAuditStats } from "@/lib/admin-api";
 import {
   AUDIT_ACTION_FILTERS,
   getAuditActionLabel,
   getAuditActorLabel,
 } from "@/lib/audit-labels";
+import type { PageSizeOption } from "@/lib/permissions";
 import type { AuditLog, AuditStats } from "@/types/audit";
+
+const LOG_PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const satisfies readonly PageSizeOption[];
 
 function formatLogDate(iso: string): string {
   try {
@@ -41,6 +45,7 @@ export default function LogsPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(25);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,11 +58,12 @@ export default function LogsPage() {
     setLoading(true);
     setError(null);
     try {
+      const limit = typeof pageSize === "number" ? pageSize : 25;
       const [statsData, listData] = await Promise.all([
         fetchAuditStats(),
         fetchAuditLogs({
           page,
-          limit: 30,
+          limit,
           action: actionFilter || undefined,
           actorType: actorFilter || undefined,
           q: searchQ || undefined,
@@ -72,7 +78,7 @@ export default function LogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, actionFilter, actorFilter, searchQ]);
+  }, [page, pageSize, actionFilter, actorFilter, searchQ]);
 
   useEffect(() => {
     void load();
@@ -228,11 +234,6 @@ export default function LogsPage() {
           </select>
         </div>
 
-        <p className="admin-muted mt-3 text-xs">
-          {total.toLocaleString("tr-TR")} kayıt
-          {searchQ ? ` · “${searchQ}” araması` : ""}
-        </p>
-
         {loading ? (
           <p className="admin-muted mt-4">Loglar yükleniyor…</p>
         ) : logs.length === 0 ? (
@@ -285,28 +286,19 @@ export default function LogsPage() {
           </div>
         )}
 
-        {totalPages > 1 && (
-          <div className="audit-pagination">
-            <button
-              type="button"
-              className="admin-btn-secondary"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Önceki
-            </button>
-            <span className="text-sm text-zinc-600">
-              Sayfa {page} / {totalPages}
-            </span>
-            <button
-              type="button"
-              className="admin-btn-secondary"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Sonraki
-            </button>
-          </div>
+        {!loading && total > 0 && (
+          <AdminPagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            pageSize={pageSize}
+            pageSizeOptions={LOG_PAGE_SIZE_OPTIONS}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+          />
         )}
       </div>
     </div>

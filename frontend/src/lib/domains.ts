@@ -68,14 +68,6 @@ export function externalUrl(host: string | undefined, path: string): string {
   return `https://${host}${p}`;
 }
 
-export function getAdminLoginUrl(): string {
-  return externalUrl(getAdminHost(), ADMIN_LOGIN_PATH);
-}
-
-export function getEmployeeLoginUrl(): string {
-  return externalUrl(getEmployeeHost(), EMPLOYEE_LOGIN_PATH);
-}
-
 export function getStoreUrl(path = STORE_PATH): string {
   return externalUrl(getStoreHost(), path);
 }
