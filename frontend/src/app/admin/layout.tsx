@@ -9,6 +9,6 @@ export default function AdminRootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-surface">{children}</div>
+    <div className="flex h-[100dvh] flex-1 flex-col overflow-hidden">{children}</div>
   );
 }

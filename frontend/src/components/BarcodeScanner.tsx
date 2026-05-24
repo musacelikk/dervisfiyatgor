@@ -6,6 +6,7 @@ import ScannerFrame from "@/components/ScannerFrame";
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void | Promise<void>;
+  variant?: "store" | "default";
 }
 
 const BARCODE_FORMATS = [
@@ -20,7 +21,7 @@ const BARCODE_FORMATS = [
   Html5QrcodeSupportedFormats.CODABAR,
 ];
 
-export default function BarcodeScanner({ onScan }: BarcodeScannerProps) {
+export default function BarcodeScanner({ onScan, variant = "default" }: BarcodeScannerProps) {
   const reactId = useId();
   const containerId = `barcode-scanner-${reactId.replace(/:/g, "")}`;
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -140,28 +141,57 @@ export default function BarcodeScanner({ onScan }: BarcodeScannerProps) {
 
   return (
     <>
-      <ScannerFrame>
+      <ScannerFrame variant={variant}>
         <button
           type="button"
           disabled={starting}
           onClick={() => void openScanner()}
-          className="btn-primary"
+          className={variant === "store" ? "store-scan-btn" : "btn-primary"}
           aria-label="Barkod taramayı başlat"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="h-5 w-5"
-            aria-hidden
-          >
-            <path d="M4.5 6.75A2.25 2.25 0 0 1 6.75 4.5h2.25A2.25 2.25 0 0 1 11.25 6.75v.75h1.5V6.75A2.25 2.25 0 0 1 15 4.5h2.25A2.25 2.25 0 0 1 19.5 6.75v10.5A2.25 2.25 0 0 1 17.25 19.5H15a2.25 2.25 0 0 1-2.25-2.25v-.75h-1.5v.75A2.25 2.25 0 0 1 9 19.5H6.75A2.25 2.25 0 0 1 4.5 17.25V6.75ZM6.75 6a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75H9a.75.75 0 0 0 .75-.75v-2.25a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v2.25c0 .414.336.75.75.75h2.25a.75.75 0 0 0 .75-.75V6.75a.75.75 0 0 0-.75-.75H15a.75.75 0 0 0-.75.75v1.5a.75.75 0 0 1-.75.75h-6a.75.75 0 0 1-.75-.75V6.75A.75.75 0 0 0 9 6H6.75Z" />
-          </svg>
-          {starting ? "Kamera açılıyor…" : "Kamerayı aç"}
+          {variant === "store" ? (
+            <>
+              <svg
+                className="h-5 w-5 shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6.827 6.175A2.31 2.31 0 0 1 8.5 5h7a2.31 2.31 0 0 1 1.673.827l1.44 1.44A2.31 2.31 0 0 0 19.5 8v8a2.31 2.31 0 0 1-.827 1.673l-1.44 1.44A2.31 2.31 0 0 1 15.5 20h-7a2.31 2.31 0 0 1-1.673-.827l-1.44-1.44A2.31 2.31 0 0 1 4.5 16V8c0-.626.24-1.227.673-1.673l1.44-1.44Z"
+                />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+              </svg>
+              {starting ? "Kamera açılıyor…" : "Kamerayı aç"}
+            </>
+          ) : (
+            <>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="h-5 w-5"
+                aria-hidden
+              >
+                <path d="M4.5 6.75A2.25 2.25 0 0 1 6.75 4.5h2.25A2.25 2.25 0 0 1 11.25 6.75v.75h1.5V6.75A2.25 2.25 0 0 1 15 4.5h2.25A2.25 2.25 0 0 1 19.5 6.75v10.5A2.25 2.25 0 0 1 17.25 19.5H15a2.25 2.25 0 0 1-2.25-2.25v-.75h-1.5v.75A2.25 2.25 0 0 1 9 19.5H6.75A2.25 2.25 0 0 1 4.5 17.25V6.75ZM6.75 6a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75H9a.75.75 0 0 0 .75-.75v-2.25a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v2.25c0 .414.336.75.75.75h2.25a.75.75 0 0 0 .75-.75V6.75a.75.75 0 0 0-.75-.75H15a.75.75 0 0 0-.75.75v1.5a.75.75 0 0 1-.75.75h-6a.75.75 0 0 1-.75-.75V6.75A.75.75 0 0 0 9 6H6.75Z" />
+              </svg>
+              {starting ? "Kamera açılıyor…" : "Kamerayı aç"}
+            </>
+          )}
         </button>
 
         {cameraError && (
-          <p className="mt-2 text-center text-xs text-red-600">{cameraError}</p>
+          <p
+            className={`mt-3 text-center text-xs font-medium ${
+              variant === "store" ? "text-red-100" : "text-red-600"
+            }`}
+          >
+            {cameraError}
+          </p>
         )}
       </ScannerFrame>
 

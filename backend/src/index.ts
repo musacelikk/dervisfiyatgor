@@ -17,6 +17,15 @@ import cors from "cors";
 import healthRouter from "./routes/health";
 import productsRouter from "./routes/products";
 import importRouter from "./routes/import";
+import exportRouter from "./routes/export";
+import adminProductsRouter from "./routes/adminProducts";
+import employeesRouter from "./routes/employees";
+import employeeAuthRouter from "./routes/employeeAuth";
+import adminOrdersRouter from "./routes/adminOrders";
+import adminAuditRouter from "./routes/adminAudit";
+import ordersRouter from "./routes/orders";
+import { initDatabase, isPostgres } from "./lib/database";
+import { scheduleProductNormBackfill } from "./lib/backfillProductNorms";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
@@ -33,6 +42,13 @@ app.use(express.json());
 app.use("/api/health", healthRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/import", importRouter);
+app.use("/api/export", exportRouter);
+app.use("/api/admin/products", adminProductsRouter);
+app.use("/api/employees", employeesRouter);
+app.use("/api/orders", ordersRouter);
+app.use("/api/admin/orders", adminOrdersRouter);
+app.use("/api/admin/audit", adminAuditRouter);
+app.use("/api/auth/employee", employeeAuthRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Endpoint bulunamadı." });
@@ -42,10 +58,19 @@ export default app;
 
 const isVercel = Boolean(process.env.VERCEL);
 if (!isVercel) {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`API http://0.0.0.0:${PORT}`);
-    console.log(`  GET  /api/health`);
-    console.log(`  GET  /api/products/search?by=&q=`);
-    console.log(`  POST /api/import?replace=true`);
-  });
+  initDatabase()
+    .then(() => {
+      app.listen(PORT, "0.0.0.0", () => {
+        const authOk = Boolean(process.env.ADMIN_SECRET);
+        const dbMode = isPostgres() ? "PostgreSQL" : "SQLite";
+        console.log(
+          `API http://localhost:${PORT} (ADMIN_SECRET: ${authOk ? "ok" : "eksik"}, DB: ${dbMode})`
+        );
+        scheduleProductNormBackfill();
+      });
+    })
+    .catch((err) => {
+      console.error("Veritabanı başlatılamadı:", err);
+      process.exit(1);
+    });
 }

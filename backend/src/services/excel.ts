@@ -179,6 +179,71 @@ export function parseExcelBuffer(buffer: Buffer): {
   };
 }
 
+/** İçe/dışa aktarma için sabit kolon sırası */
+export const EXCEL_EXPORT_HEADERS = [
+  EXCEL_COLUMNS.stockCode,
+  EXCEL_COLUMNS.barcode,
+  EXCEL_COLUMNS.name,
+  EXCEL_COLUMNS.salePrice1,
+  EXCEL_COLUMNS.salePrice2,
+  OPTIONAL_EXCEL_COLUMNS.purchasePrice1,
+  OPTIONAL_EXCEL_COLUMNS.purchasePrice2,
+  EXCEL_COLUMNS.remainingQty,
+  EXCEL_COLUMNS.unit,
+  EXCEL_COLUMNS.description1,
+  EXCEL_COLUMNS.description2,
+  EXCEL_COLUMNS.group,
+] as const;
+
+function cellValue(value: string | number | null | undefined): string | number {
+  if (value === null || value === undefined) return "";
+  return value;
+}
+
+function productToRow(product: Product): (string | number)[] {
+  return [
+    cellValue(product.stockCode),
+    cellValue(product.barcode),
+    cellValue(product.name),
+    cellValue(product.salePrice1),
+    cellValue(product.salePrice2),
+    cellValue(product.purchasePrice1),
+    cellValue(product.purchasePrice2),
+    cellValue(product.remainingQty),
+    cellValue(product.unit),
+    cellValue(product.description1),
+    cellValue(product.description2),
+    cellValue(product.group),
+  ];
+}
+
+export function buildExcelBuffer(products: Product[]): Buffer {
+  const rows = products.map(productToRow);
+  const sheet = XLSX.utils.aoa_to_sheet([Array.from(EXCEL_EXPORT_HEADERS), ...rows]);
+
+  const barcodeCol = 1;
+  const range = XLSX.utils.decode_range(sheet["!ref"] ?? "A1");
+  for (let r = 1; r <= range.e.r; r++) {
+    const addr = XLSX.utils.encode_cell({ r, c: barcodeCol });
+    const cell = sheet[addr];
+    if (cell && cell.v !== "" && cell.v !== undefined) {
+      cell.t = "s";
+      cell.v = String(cell.v);
+      cell.z = "@";
+    }
+  }
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, sheet, "Ürünler");
+  return Buffer.from(
+    XLSX.write(workbook, { type: "buffer", bookType: "xlsx", cellStyles: false })
+  );
+}
+
+export function buildTemplateExcelBuffer(): Buffer {
+  return buildExcelBuffer([]);
+}
+
 export function getExcelHeaders(buffer: Buffer): string[] {
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const sheetName = workbook.SheetNames[0];

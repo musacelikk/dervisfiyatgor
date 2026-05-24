@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { getProductCount } from "../services/db";
+import { getEmployeeCount } from "../services/employees";
 
 const router = Router();
 
-router.get("/", (_req, res) => {
+router.get("/", async (_req, res) => {
   res.json({
     status: "ok",
-    productCount: getProductCount(),
+    productCount: await getProductCount(),
+    employeeCount: await getEmployeeCount(),
     timestamp: new Date().toISOString(),
   });
 });

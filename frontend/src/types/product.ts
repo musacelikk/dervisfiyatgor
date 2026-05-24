@@ -32,8 +32,19 @@ export interface ImportResult {
   replace: boolean;
 }
 
+export interface ProductListResult {
+  products: Product[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  query: string;
+  showAll?: boolean;
+}
+
 export interface HealthStatus {
   status: string;
   productCount: number;
+  employeeCount?: number;
   timestamp: string;
 }

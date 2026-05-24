@@ -4,18 +4,24 @@ import { useCallback, useEffect, useState } from "react";
 import AppHeader from "@/components/AppHeader";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import BottomSheet from "@/components/BottomSheet";
-import ManagerHeader from "@/components/ManagerHeader";
 import MobileMenu from "@/components/MobileMenu";
 import ProductDetailView from "@/components/ProductDetailView";
-import ProductResultList from "@/components/ProductResultList";
+import ProductResultList from "@/components/store/ProductResultList";
 import SearchField from "@/components/SearchField";
+import CartSheet from "@/components/store/CartSheet";
+import StoreFloatingCart from "@/components/store/StoreFloatingCart";
+import StoreToast from "@/components/store/StoreToast";
+import { IconBarcode, IconLayers, IconSearch, IconTag } from "@/components/store/StoreIcons";
 import { getHealth } from "@/lib/api";
+import { cartTotal } from "@/lib/cart";
+import { useStoreCart } from "@/lib/use-store-cart";
 import {
   buildCriteria,
   lookupByScannedCode,
   runProductSearch,
   validateCriteria,
 } from "@/lib/search";
+import { hasPermission, type PermissionId } from "@/lib/permissions";
 import type { Product } from "@/types/product";
 
 function StatusBanner({
@@ -41,10 +47,13 @@ function StatusBanner({
 
 interface ScanPageProps {
   variant?: "store" | "manager";
+  permissions?: PermissionId[];
 }
 
-export default function ScanPage({ variant = "store" }: ScanPageProps) {
+export default function ScanPage({ variant = "store", permissions = [] }: ScanPageProps) {
   const isManager = variant === "manager";
+  const showPurchasePrices =
+    isManager && hasPermission(permissions, "prices.purchase");
   const [menuOpen, setMenuOpen] = useState(false);
   const [barcode, setBarcode] = useState("");
   const [stockCode, setStockCode] = useState("");
@@ -60,6 +69,10 @@ export default function ScanPage({ variant = "store" }: ScanPageProps) {
   const [catalogCount, setCatalogCount] = useState<number | null>(null);
   const [apiOnline, setApiOnline] = useState(true);
   const [barcodeLookup, setBarcodeLookup] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const { lines, setLines, addProduct, itemCount: cartCount } = useStoreCart();
+  const cartSum = cartTotal(lines);
 
   const refreshHealth = useCallback(async () => {
     try {
@@ -211,24 +224,43 @@ export default function ScanPage({ variant = "store" }: ScanPageProps) {
     setSheetTitle("Ürün detayı");
   };
 
+  const handleAddToCart = (product: Product, quantity = 1) => {
+    addProduct(product, quantity);
+    setToast(`${product.name} sepete eklendi`);
+  };
+
+  const storeHasCart = !isManager && cartCount > 0;
+
   return (
-    <div
-      className="flex min-h-[100dvh] flex-col bg-surface"
-    >
-      {isManager ? (
-        <ManagerHeader productCount={catalogCount} />
-      ) : (
+    <div className={isManager ? "employee-scan-page" : "store-page store-page-shell flex flex-col"}>
+      {!isManager && (
         <>
           <AppHeader
             menuOpen={menuOpen}
             onMenuClick={() => setMenuOpen((o) => !o)}
             productCount={catalogCount}
+            apiOnline={apiOnline}
+            cartCount={cartCount}
+            onCartClick={() => setCartOpen(true)}
           />
           <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
         </>
       )}
 
-      <main className="mx-auto flex w-full max-w-md min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <main
+        className={
+          isManager
+            ? "employee-main-scan"
+            : `store-main${storeHasCart ? " store-main-with-cart" : ""}`
+        }
+      >
+        {!isManager && (
+          <div className="store-hero">
+            <h1 className="store-hero-title">Ürün ara & sipariş ver</h1>
+            <p className="store-hero-desc">Barkod okutun, fiyatı görün, sepete ekleyin</p>
+          </div>
+        )}
+
         {(!apiOnline || (apiOnline && catalogCount === 0) || error) && (
           <div className="flex shrink-0 flex-col gap-2">
             {!apiOnline && (
@@ -243,58 +275,66 @@ export default function ScanPage({ variant = "store" }: ScanPageProps) {
           </div>
         )}
 
-        <BarcodeScanner onScan={handleBarcodeScan} />
+        <BarcodeScanner onScan={handleBarcodeScan} variant={isManager ? "default" : "store"} />
 
-        <section className="app-card flex flex-col p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-zinc-900">Manuel arama</h2>
-              <p className="text-xs text-zinc-500">
-                {isManager
-                  ? "Satış ve alış fiyatları dahil detay gösterilir"
-                  : "Alanlardan birini doldurmanız yeterli"}
-              </p>
+        {!isManager && (
+          <div className="store-divider">
+            <span>veya manuel ara</span>
+          </div>
+        )}
+
+        <section className={isManager ? "app-card flex flex-col p-4" : "store-search-card shrink-0"}>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="store-search-card-icon">
+                <IconSearch className="h-4 w-4" />
+              </span>
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-900">Manuel arama</h2>
+                {!isManager && (
+                  <p className="text-[11px] text-zinc-500">Bir alan yeterli</p>
+                )}
+                {isManager && (
+                  <p className="text-xs text-zinc-500">Satış ve alış fiyatları dahil</p>
+                )}
+              </div>
             </div>
             {hasAnyField && (
-              <button
-                type="button"
-                onClick={clearFields}
-                className="shrink-0 text-xs font-medium text-zinc-400 transition hover:text-accent"
-              >
+              <button type="button" onClick={clearFields} className="store-clear-btn">
                 Temizle
               </button>
             )}
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="store-search-fields">
             <SearchField
               label="Barkod"
               value={barcode}
               onChange={setBarcode}
               placeholder="Barkod numarası"
               inputMode="numeric"
-              autoComplete="off"
+              icon={<IconBarcode />}
             />
             <SearchField
               label="Stok kodu"
               value={stockCode}
               onChange={setStockCode}
               placeholder="Örn. ST03407"
-              autoComplete="off"
+              icon={<IconTag />}
             />
             <SearchField
               label="Ürün adı"
               value={productName}
               onChange={setProductName}
               placeholder="Ürün adında ara"
-              autoComplete="off"
+              icon={<IconSearch />}
             />
             <SearchField
               label="Grup"
               value={productGroup}
               onChange={setProductGroup}
               placeholder="Örn. ORSA"
-              autoComplete="off"
+              icon={<IconLayers />}
             />
           </div>
 
@@ -302,7 +342,7 @@ export default function ScanPage({ variant = "store" }: ScanPageProps) {
             type="button"
             onClick={handleFilter}
             disabled={loading || !apiOnline}
-            className="btn-primary mt-4"
+            className={isManager ? "btn-primary mt-4" : "store-search-btn mt-3"}
           >
             {loading ? (
               <>
@@ -310,7 +350,10 @@ export default function ScanPage({ variant = "store" }: ScanPageProps) {
                 Aranıyor…
               </>
             ) : (
-              "Ara"
+              <>
+                {!isManager && <IconSearch className="h-4 w-4" />}
+                Ürün ara
+              </>
             )}
           </button>
         </section>
@@ -330,7 +373,9 @@ export default function ScanPage({ variant = "store" }: ScanPageProps) {
         title={sheetTitle}
         subtitle={
           sheetView === "list"
-            ? "Detay için satıra dokunun"
+            ? isManager
+              ? "Detay için satıra dokunun"
+              : "Sepete ekleyin veya detay için dokunun"
             : selectedProduct?.stockCode
         }
       >
@@ -340,11 +385,24 @@ export default function ScanPage({ variant = "store" }: ScanPageProps) {
             <p className="text-sm text-zinc-500">Ürün aranıyor…</p>
           </div>
         ) : sheetView === "list" ? (
-          <ProductResultList products={results} onSelect={handleSelectProduct} />
+          <ProductResultList
+            products={results}
+            onSelect={handleSelectProduct}
+            storeMode={!isManager}
+            onAddToCart={!isManager ? handleAddToCart : undefined}
+          />
         ) : selectedProduct ? (
           <ProductDetailView
             product={selectedProduct}
-            showPurchasePrices={isManager}
+            showPurchasePrices={showPurchasePrices}
+            onAddToCart={
+              !isManager
+                ? (quantity) => {
+                    handleAddToCart(selectedProduct, quantity);
+                    setCartOpen(true);
+                  }
+                : undefined
+            }
           />
         ) : (
           <p className="py-10 text-center text-sm text-zinc-500">
@@ -352,6 +410,28 @@ export default function ScanPage({ variant = "store" }: ScanPageProps) {
           </p>
         )}
       </BottomSheet>
+
+      {!isManager && (
+        <>
+          <StoreFloatingCart
+            itemCount={cartCount}
+            total={cartSum}
+            onOpen={() => setCartOpen(true)}
+            hidden={cartOpen}
+          />
+          <StoreToast
+            message={toast}
+            onClear={() => setToast(null)}
+            aboveFloatingCart={storeHasCart && !cartOpen}
+          />
+          <CartSheet
+            open={cartOpen}
+            onClose={() => setCartOpen(false)}
+            lines={lines}
+            onLinesChange={setLines}
+          />
+        </>
+      )}
     </div>
   );
 }

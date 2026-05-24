@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { ADMIN_COOKIE, isValidAdminToken } from "@/lib/admin-session";
 import type { ImportResult } from "@/types/product";
 
+export const maxDuration = 300;
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 export async function POST(request: Request) {
@@ -32,8 +34,13 @@ export async function POST(request: Request) {
   try {
     res = await fetch(`${API_URL}/api/import?replace=${replace}`, {
       method: "POST",
-      headers: { "X-Admin-Key": secret },
+      headers: {
+        "X-Admin-Key": secret,
+        "X-Actor-Type": "admin",
+        "X-Actor-Name": encodeURIComponent("Yönetici"),
+      },
       body: backendForm,
+      signal: AbortSignal.timeout(290_000),
     });
   } catch {
     return NextResponse.json(

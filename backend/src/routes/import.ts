@@ -1,8 +1,10 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
 import { requireAdmin } from "../middleware/adminAuth";
+import { getAuditContext } from "../lib/auditContext";
 import { parseExcelBuffer, getExcelHeaders } from "../services/excel";
 import { upsertProducts, clearProducts, getProductCount } from "../services/db";
+import { logAuditFromContext } from "../services/audit";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -19,7 +21,7 @@ const upload = multer({
 
 const router = Router();
 
-router.post("/", requireAdmin, upload.single("file"), (req, res) => {
+router.post("/", requireAdmin, upload.single("file"), async (req, res) => {
   if (!req.file) {
     res.status(400).json({ error: "file alanı gerekli (multipart/form-data)." });
     return;
@@ -41,23 +43,46 @@ router.post("/", requireAdmin, upload.single("file"), (req, res) => {
     }
 
     if (replace) {
-      clearProducts();
+      await clearProducts();
+      logAuditFromContext(getAuditContext(req), {
+        action: "catalog.clear",
+        resourceType: "catalog",
+        message: "Mevcut ürün kataloğu temizlendi (Excel yeniden yükleme).",
+        metadata: { replace: true },
+      });
     }
 
-    const imported = upsertProducts(products);
+    const imported = await upsertProducts(products);
+
+    logAuditFromContext(getAuditContext(req), {
+      action: "catalog.import",
+      resourceType: "catalog",
+      message: `${imported} ürün Excel ile içe aktarıldı.`,
+      metadata: {
+        imported,
+        skipped,
+        totalRows,
+        replace,
+        fileName: req.file.originalname,
+      },
+    });
 
     res.json({
       success: true,
       imported,
       skipped,
       totalRows,
-      productCount: getProductCount(),
+      productCount: await getProductCount(),
       headers,
       replace,
     });
   } catch (err) {
     let message = err instanceof Error ? err.message : "Import hatası";
-    if (message.includes("UNIQUE constraint failed: products.barcode")) {
+    if (
+      message.includes("UNIQUE constraint failed: products.barcode") ||
+      message.includes("duplicate key value violates unique constraint") ||
+      message.includes("products_barcode_key")
+    ) {
       message =
         "Aynı barkod birden fazla üründe kullanılıyor. Excel dosyasında tekrarlayan barkodları kontrol edin veya “Mevcut ürünleri sil” seçeneğiyle tam yeniden yükleyin.";
     }

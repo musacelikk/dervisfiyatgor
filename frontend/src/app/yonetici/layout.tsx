@@ -1,5 +1,7 @@
+import EmployeeLayout from "@/components/EmployeeLayout";
+
 export const metadata = {
-  title: "Yönetici | DervişMobil",
+  title: "Çalışan | DervişMobil",
   robots: { index: false, follow: false },
 };
 
@@ -8,5 +10,9 @@ export default function YoneticiLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="flex min-h-full flex-1 flex-col bg-surface">{children}</div>;
+  return (
+    <div className="employee-root">
+      <EmployeeLayout>{children}</EmployeeLayout>
+    </div>
+  );
 }

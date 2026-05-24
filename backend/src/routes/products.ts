@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { searchProducts, type SearchBy } from "../services/db";
+import { getAuditContext } from "../lib/auditContext";
+import { logAuditFromContext } from "../services/audit";
 import type { ProductRow } from "../types/product";
 
 const router = Router();
@@ -23,7 +25,7 @@ function rowToJson(row: ProductRow) {
 
 const VALID_BY = new Set<SearchBy>(["barcode", "stockCode", "name", "group"]);
 
-router.get("/search", (req, res) => {
+router.get("/search", async (req, res) => {
   const by = String(req.query.by ?? "").trim() as SearchBy;
   const q = String(req.query.q ?? "").trim();
 
@@ -44,8 +46,28 @@ router.get("/search", (req, res) => {
     return;
   }
 
-  const rows = searchProducts(by, q);
+  const rows = await searchProducts(by, q);
   const products = rows.map(rowToJson);
+
+  const ctx = getAuditContext(req, "store");
+  const top = rows[0];
+  logAuditFromContext(ctx, {
+    action: "product.search",
+    resourceType: "product",
+    resourceId: top?.stock_code ?? q,
+    message:
+      products.length > 0
+        ? `Ürün sorgusu: ${q} (${products.length} sonuç)`
+        : `Ürün bulunamadı: ${q}`,
+    metadata: {
+      by,
+      query: q,
+      resultCount: products.length,
+      stockCode: top?.stock_code ?? null,
+      productName: top?.name ?? null,
+    },
+    success: products.length > 0,
+  });
 
   if (products.length === 0) {
     res.status(404).json({
@@ -59,26 +81,6 @@ router.get("/search", (req, res) => {
   }
 
   res.json({ by, query: q, products, count: products.length });
-});
-
-/** Geriye dönük: barkod veya stok kodu */
-router.get("/", (req, res) => {
-  const q = String(req.query.barcode ?? req.query.q ?? "").trim();
-
-  if (!q) {
-    res.status(400).json({ error: "barcode veya q parametresi gerekli." });
-    return;
-  }
-
-  const barcodeHit = searchProducts("barcode", q);
-  const rows = barcodeHit.length > 0 ? barcodeHit : searchProducts("stockCode", q);
-
-  if (rows.length === 0) {
-    res.status(404).json({ error: "Ürün bulunamadı.", barcode: q });
-    return;
-  }
-
-  res.json(rowToJson(rows[0]));
 });
 
 export default router;

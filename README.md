@@ -1,17 +1,18 @@
-# Akınsoft Fiyat Gör
+# DervişMobil Fiyat Gör
 
 Barkod okutarak veya manuel arama ile ürün fiyatını gösteren mobil odaklı uygulama. Excel kataloğu admin panelinden yüklenir.
 
 ## Mimari
 
 ```
-frontend/   → Next.js (mağaza + admin arayüzü)
+frontend/   → Next.js (mağaza, yönetici, admin)
 backend/    → Express + SQLite + xlsx
+samples/    → Örnek Excel dosyası (geliştirme)
 ```
 
 ## Yerel kurulum
 
-### Backend
+### 1. Backend
 
 ```bash
 cd backend
@@ -20,9 +21,9 @@ npm install
 npm run dev
 ```
 
-API: `http://localhost:4000`
+API: http://localhost:4000
 
-### Frontend
+### 2. Frontend (ayrı terminal)
 
 ```bash
 cd frontend
@@ -31,10 +32,32 @@ npm install
 npm run dev
 ```
 
-- Mağaza: http://localhost:3000  
-- Admin: http://localhost:3000/admin/login  
+| Arayüz | Adres |
+|--------|--------|
+| Mağaza | http://localhost:3000 |
+| Çalışan paneli | http://localhost:3000/yonetici/login |
+| Admin (ana panel) | http://localhost:3000/admin/login |
 
-`ADMIN_SECRET` değeri **frontend** ve **backend** `.env` dosyalarında **aynı** olmalıdır.
+### Ortam değişkenleri
+
+**Backend** (`backend/.env`):
+
+| Değişken | Açıklama |
+|----------|----------|
+| `PORT` | API portu (varsayılan 4000) |
+| `CORS_ORIGIN` | Frontend adresi |
+| `ADMIN_SECRET` | Excel import ve admin API anahtarı |
+
+**Frontend** (`frontend/.env.local`):
+
+| Değişken | Açıklama |
+|----------|----------|
+| `NEXT_PUBLIC_API_URL` | Backend adresi |
+| `ADMIN_SECRET` | Admin girişi — backend ile **aynı** olmalı |
+
+Çalışan girişleri admin panelinden oluşturulur (`/admin/calisanlar`); ortak şifre yoktur.
+
+`.env` dosyalarını oluşturduktan veya değiştirdikten sonra ilgili sunucuyu **yeniden başlatın**.
 
 ## API
 
@@ -43,6 +66,8 @@ npm run dev
 | GET | `/api/health` | Sağlık + ürün sayısı |
 | GET | `/api/products/search?by=&q=` | Arama (`by`: barcode, stockCode, name, group) |
 | POST | `/api/import?replace=true` | Excel yükle (`file`, header: `X-Admin-Key`) |
+| GET/POST/PATCH/DELETE | `/api/employees` | Çalışan hesapları (admin) |
+| POST | `/api/auth/employee/login` | Çalışan girişi |
 
 ## Excel kolonları
 
@@ -51,22 +76,33 @@ npm run dev
 | Stok Kodu | Birincil anahtar |
 | Stok Adı | Ürün adı |
 | Birimi | Birim |
-| Barkodu | Barkod (benzersiz) |
+| Barkodu | Barkod |
 | Satış Fiyatı 1 / 2 | Satış fiyatları |
 | Alış Fiyatı 1 / 2 | Alış fiyatları |
+| Kalan Miktar | Stok |
+| Açıklama 1 / 2 | Açıklamalar |
 | Grubu | Grup |
 
----
+Örnek dosya: `samples/test-urunler.xlsx`
 
-## Yayına alma — sizin yapmanız gerekenler
+## Geliştirme
 
-### 1. Güçlü admin şifresi
+```bash
+# Backend
+cd backend && npm run dev
 
-`.env` içindeki `ADMIN_SECRET=1` gibi zayıf değerleri **mutlaka değiştirin** (uzun, rastgele).
+# Frontend
+cd frontend && npm run dev
+```
 
-### 2. Ortam değişkenleri
+## Yayına alma
 
-**Backend** (`backend/.env`):
+### Güvenlik
+
+- `ADMIN_SECRET` ve `MANAGER_SECRET` için güçlü, rastgele değerler kullanın.
+- Canlıda `ADMIN_SECRET=1` gibi zayıf değerler kullanmayın.
+
+### Backend
 
 ```env
 PORT=4000
@@ -74,63 +110,28 @@ CORS_ORIGIN=https://siteniz.com
 ADMIN_SECRET=guclu-sifreniz
 ```
 
-`CORS_ORIGIN`: Mağaza arayüzünün açıldığı tam adres (birden fazlaysa virgülle: `https://a.com,https://b.com`).
+- `backend/data/` kalıcı olmalı (SQLite).
+- Node.js 20+, `npm run build && npm start`
 
-**Frontend** (hosting panelinde, örn. Vercel):
+### Frontend
 
 ```env
 NEXT_PUBLIC_API_URL=https://api.siteniz.com
 ADMIN_SECRET=guclu-sifreniz
+MANAGER_SECRET=yonetici-sifreniz
 ```
 
-`ADMIN_SECRET` backend ile **birebir aynı** olmalı.
+- HTTPS zorunlu (mobil barkod kamerası).
+- `NEXT_PUBLIC_API_URL` değişince yeniden deploy edin.
 
-### 3. HTTPS (zorunlu — telefon kamerası)
+### Vercel (monorepo)
 
-Barkod tarama mobilde yalnızca **HTTPS** (veya localhost) üzerinde çalışır. Frontend ve API için SSL sertifikası kullanın.
+`vercel.json` frontend’i `/`, backend’i `/_/backend` altında yayınlar.
 
-### 4. Backend sunucusu
+### Kontrol listesi
 
-- Node.js 20+ kurulu bir VPS veya PaaS (Railway, Render, Fly.io vb.)
-- `cd backend && npm install && npm run build && npm start`
-- `backend/data/` klasörü **kalıcı** olmalı (SQLite dosyası burada; sunucu yenilenince silinmemeli)
-- `better-sqlite3` native modül — sunucuda `npm install` build ortamında çalışmalı
-
-### 5. Frontend yayını
-
-- Vercel, Netlify veya kendi sunucunuzda `cd frontend && npm run build && npm start`
-- `NEXT_PUBLIC_API_URL` build zamanında okunur; değişince yeniden deploy edin
-
-### 6. İlk veri yüklemesi
-
-1. Telefondan veya bilgisayardan `https://siteniz.com/admin/login` açın  
-2. Excel dosyasını yükleyin  
-3. Mağaza sayfasında barkod okutmayı test edin  
-
-### 7. Telefon kullanımı
-
-- Ana ekranı tarayıcıda açın → “Ana Ekrana Ekle” (iOS/Android) ile kısayol oluşturabilirsiniz  
-- Kamera iznini tarayıcıya verin  
-- İyi aydınlatma ve barkodu yeşil çerçeveye hizalayın  
-
-### 8. Kontrol listesi
-
-- [ ] `ADMIN_SECRET` güçlü ve iki tarafta aynı  
-- [ ] `NEXT_PUBLIC_API_URL` canlı API adresi  
-- [ ] `CORS_ORIGIN` canlı site adresi  
-- [ ] HTTPS aktif  
-- [ ] SQLite `data/` klasörü yedekleniyor  
-- [ ] Excel import test edildi  
-- [ ] Telefonda barkod + fiyat sorgusu test edildi  
-
----
-
-## Geliştirme komutları
-
-```bash
-# Backend
-cd backend && npm run dev
-
-# Frontend (ayrı terminal)
-cd frontend && npm run dev
-```
+- [ ] `ADMIN_SECRET` güçlü; frontend ve backend aynı
+- [ ] `NEXT_PUBLIC_API_URL` ve `CORS_ORIGIN` doğru
+- [ ] HTTPS aktif
+- [ ] SQLite yedekleniyor
+- [ ] Excel import ve telefon barkod testi yapıldı

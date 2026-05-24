@@ -1,5 +1,5 @@
-import ImportPage from "@/components/ImportPage";
+import { redirect } from "next/navigation";
 
-export default function AdminImportPage() {
-  return <ImportPage />;
+export default function LegacyImportPage() {
+  redirect("/admin/stok/katalog");
 }
