@@ -119,7 +119,7 @@ DATABASE_URL=postgresql://...
 ### Frontend (Vercel)
 
 ```env
-NEXT_PUBLIC_API_URL=https://api.dervisplastik.com
+NEXT_PUBLIC_API_URL=https://dervisplastik.up.railway.app
 NEXT_PUBLIC_STORE_HOST=fiyatgor.dervisplastik.com
 NEXT_PUBLIC_ADMIN_HOST=admin.dervisplastik.com
 NEXT_PUBLIC_EMPLOYEE_HOST=personel.dervisplastik.com

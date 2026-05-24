@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import AppHeader from "@/components/AppHeader";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import BottomSheet from "@/components/BottomSheet";
-import MobileMenu from "@/components/MobileMenu";
 import ProductDetailView from "@/components/ProductDetailView";
 import ProductResultList from "@/components/store/ProductResultList";
 import SearchField from "@/components/SearchField";
@@ -54,7 +53,6 @@ export default function ScanPage({ variant = "store", permissions = [] }: ScanPa
   const isManager = variant === "manager";
   const showPurchasePrices =
     isManager && hasPermission(permissions, "prices.purchase");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [barcode, setBarcode] = useState("");
   const [stockCode, setStockCode] = useState("");
   const [productName, setProductName] = useState("");
@@ -234,17 +232,12 @@ export default function ScanPage({ variant = "store", permissions = [] }: ScanPa
   return (
     <div className={isManager ? "employee-scan-page" : "store-page store-page-shell flex flex-col"}>
       {!isManager && (
-        <>
-          <AppHeader
-            menuOpen={menuOpen}
-            onMenuClick={() => setMenuOpen((o) => !o)}
-            productCount={catalogCount}
-            apiOnline={apiOnline}
-            cartCount={cartCount}
-            onCartClick={() => setCartOpen(true)}
-          />
-          <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
-        </>
+        <AppHeader
+          productCount={catalogCount}
+          apiOnline={apiOnline}
+          cartCount={cartCount}
+          onCartClick={() => setCartOpen(true)}
+        />
       )}
 
       <main
@@ -268,7 +261,7 @@ export default function ScanPage({ variant = "store", permissions = [] }: ScanPa
             )}
             {apiOnline && catalogCount === 0 && (
               <StatusBanner variant="warn">
-                Katalog boş. Admin panelinden Excel yükleyin.
+                Katalog henüz yüklenmemiş. Lütfen daha sonra tekrar deneyin.
               </StatusBanner>
             )}
             {error && <StatusBanner variant="error">{error}</StatusBanner>}

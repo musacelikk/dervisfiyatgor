@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { adminLogout } from "@/lib/admin-api";
+import { ADMIN_ENTRY_PATH, getStoreUrl, shouldShowStoreLink } from "@/lib/domains";
 import { ADMIN_NAV, getAdminNavPage, getAdminPageDescription, isAdminNavActive } from "@/lib/admin-nav";
 import { IconLogout, IconStore } from "./AdminIcons";
 
@@ -47,6 +48,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const current = getAdminNavPage(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showStoreLink, setShowStoreLink] = useState(false);
+
+  useEffect(() => {
+    setShowStoreLink(shouldShowStoreLink(window.location.hostname));
+  }, []);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -81,7 +87,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <aside className={`admin-sidebar ${menuOpen ? "admin-sidebar-open" : ""}`}>
         <div className="admin-sidebar-inner">
           <div className="admin-sidebar-brand">
-            <Link href="/admin" className="admin-sidebar-logo" onClick={() => setMenuOpen(false)}>
+            <Link href={ADMIN_ENTRY_PATH} className="admin-sidebar-logo" onClick={() => setMenuOpen(false)}>
               <BrandLogo size="sm" priority />
             </Link>
             <span className="admin-sidebar-badge">Yönetim</span>
@@ -90,16 +96,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <SidebarNav pathname={pathname} onNavigate={() => setMenuOpen(false)} />
 
           <div className="admin-sidebar-footer">
-            <Link
-              href="/"
-              className="admin-nav-item admin-nav-item-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <span className="admin-nav-icon">
-                <IconStore />
-              </span>
-              <span className="admin-nav-label">Mağaza arayüzü</span>
-            </Link>
+            {showStoreLink && (
+              <Link
+                href={getStoreUrl()}
+                className="admin-nav-item admin-nav-item-muted"
+                onClick={() => setMenuOpen(false)}
+              >
+                <span className="admin-nav-icon">
+                  <IconStore />
+                </span>
+                <span className="admin-nav-label">Mağaza arayüzü</span>
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => void handleLogout()}

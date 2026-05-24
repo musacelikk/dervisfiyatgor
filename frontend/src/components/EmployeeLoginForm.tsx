@@ -3,7 +3,8 @@
 import BrandLogo from "@/components/BrandLogo";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { EMPLOYEE_ENTRY_PATH, getStoreUrl, shouldShowStoreLink } from "@/lib/domains";
 import { managerLogin } from "@/lib/manager-api";
 
 function EmployeeLoginFormInner() {
@@ -13,6 +14,11 @@ function EmployeeLoginFormInner() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showStoreLink, setShowStoreLink] = useState(false);
+
+  useEffect(() => {
+    setShowStoreLink(shouldShowStoreLink(window.location.hostname));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +27,7 @@ function EmployeeLoginFormInner() {
 
     try {
       await managerLogin(username, password);
-      const from = searchParams.get("from") || "/yonetici";
+      const from = searchParams.get("from") || EMPLOYEE_ENTRY_PATH;
       router.push(from);
       router.refresh();
     } catch (err) {
@@ -90,12 +96,14 @@ function EmployeeLoginFormInner() {
           </form>
         </div>
 
-        <Link
-          href="/"
-          className="mt-6 block text-center text-sm font-medium text-zinc-500 transition hover:text-accent"
-        >
-          ← Mağaza arayüzüne dön
-        </Link>
+        {showStoreLink && (
+          <Link
+            href={getStoreUrl()}
+            className="mt-6 block text-center text-sm font-medium text-zinc-500 transition hover:text-accent"
+          >
+            ← Mağaza arayüzüne dön
+          </Link>
+        )}
       </div>
     </main>
   );

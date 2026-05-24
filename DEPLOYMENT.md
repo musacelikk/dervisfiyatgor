@@ -7,9 +7,15 @@
 | `fiyatgor.dervisplastik.com` | Müşteri mağaza | Vercel (frontend) |
 | `admin.dervisplastik.com` | Admin paneli | Vercel (frontend) |
 | `personel.dervisplastik.com` | Çalışan paneli | Vercel (frontend) |
-| `api.dervisplastik.com` | Backend API | Railway |
+| `dervisplastik.up.railway.app` | Backend API | Railway (public URL) |
 
-Üç frontend subdomain'i **aynı Vercel projesine** bağlanır. Middleware, gelen host'a göre doğru bölüme yönlendirir.
+Üç frontend subdomain'i **aynı Vercel projesine** bağlanır. Her subdomain yalnızca kendi bölümünü açar:
+
+| Subdomain | Davranış |
+|-----------|----------|
+| `fiyatgor.*` | Yalnızca mağaza (`/`). `/admin` ve `/yonetici` engellenir. |
+| `admin.*` | Yalnızca `/admin/*` (admin-nav menüsü). Giriş sonrası `/admin` anasayfa. |
+| `personel.*` | Yalnızca `/yonetici/*` (employee-nav menüsü). Giriş sonrası yetkiye göre ilk sayfa. |
 
 ---
 
@@ -37,11 +43,11 @@ CORS_ORIGIN=https://fiyatgor.dervisplastik.com,https://admin.dervisplastik.com,h
 
 > Yerel geliştirme için `http://localhost:3000` CORS'a eklenmeli; canlı Railway'de gerekmez.
 
-### Custom domain (api.dervisplastik.com)
+### Public URL
 
-1. Railway → backend servisi → **Settings** → **Networking** → **Custom Domain**
-2. `api.dervisplastik.com` yazın
-3. Railway size bir **CNAME hedefi** verir (ör. `xxxx.up.railway.app`)
+1. Railway → backend servisi → **Settings** → **Networking**
+2. **Generate Domain** / **Public Networking** açık olsun
+3. Adres örneği: `https://dervisplastik.up.railway.app` (sizinki farklı olabilir; Vercel'de aynısını kullanın)
 
 ---
 
@@ -58,7 +64,7 @@ CORS_ORIGIN=https://fiyatgor.dervisplastik.com,https://admin.dervisplastik.com,h
 Production için:
 
 ```env
-NEXT_PUBLIC_API_URL=https://api.dervisplastik.com
+NEXT_PUBLIC_API_URL=https://dervisplastik.up.railway.app
 NEXT_PUBLIC_STORE_HOST=fiyatgor.dervisplastik.com
 NEXT_PUBLIC_ADMIN_HOST=admin.dervisplastik.com
 NEXT_PUBLIC_EMPLOYEE_HOST=personel.dervisplastik.com
@@ -92,11 +98,7 @@ GoDaddy → **dervisplastik.com** → **DNS Yönetimi** → **Kayıt Ekle**
 
 > Üç subdomain aynı Vercel projesine gider; Vercel hangi domain'den geldiğini `Host` header'ından bilir.
 
-### Backend (Railway) — 1 kayıt
-
-| Tip | Ad (Host) | Değer (Points to) | TTL |
-|-----|-----------|-------------------|-----|
-| CNAME | `api` | Railway'in verdiği CNAME (ör. `xxxx.up.railway.app`) | 600 |
+Backend için GoDaddy'de **DNS kaydı eklemezsiniz** — API doğrudan `https://dervisplastik.up.railway.app` üzerinden çalışır.
 
 ### Notlar
 
@@ -108,7 +110,7 @@ GoDaddy → **dervisplastik.com** → **DNS Yönetimi** → **Kayıt Ekle**
 
 ## 4. Doğrulama checklist
 
-- [ ] `https://api.dervisplastik.com/api/health` JSON döndürüyor
+- [ ] `https://dervisplastik.up.railway.app/api/health` JSON döndürüyor
 - [ ] `https://fiyatgor.dervisplastik.com` mağaza açılıyor
 - [ ] `https://admin.dervisplastik.com` → `/admin` paneline yönleniyor
 - [ ] `https://personel.dervisplastik.com` → `/yonetici` paneline yönleniyor
@@ -132,7 +134,7 @@ Değiştirdikten sonra Railway servisini redeploy edin.
 
 ### Admin / personel girişi "Backend'e bağlanılamadı"
 
-Vercel'de `NEXT_PUBLIC_API_URL=https://api.dervisplastik.com` doğru mu? Değiştirince **frontend redeploy** gerekir.
+Vercel'de `NEXT_PUBLIC_API_URL=https://dervisplastik.up.railway.app` doğru mu? (Railway Networking'teki URL ile birebir aynı olmalı.) Değiştirince **frontend redeploy** gerekir.
 
 ### Domain Vercel'de "Invalid Configuration"
 

@@ -2,21 +2,24 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { ADMIN_COOKIE, isValidAdminToken } from "@/lib/admin-session";
 import {
+  ADMIN_LOGIN_PATH,
+  EMPLOYEE_LOGIN_PATH,
   getAdminHost,
   getEmployeeHost,
   getStoreHost,
+  isAdminPanelPath,
+  isEmployeePanelPath,
   normalizeHost,
 } from "@/lib/domains";
 import { MANAGER_COOKIE, isValidManagerToken } from "@/lib/manager-session";
 
-function redirectToHost(host: string, request: NextRequest, pathname: string): NextResponse {
-  const url = new URL(request.url);
-  url.hostname = host;
-  url.pathname = pathname;
-  url.search = request.nextUrl.search;
-  url.port = "";
-  url.protocol = "https:";
-  return NextResponse.redirect(url);
+function isStaticOrApi(pathname: string): boolean {
+  return (
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/_next") ||
+    pathname === "/favicon.ico" ||
+    /\.(svg|png|jpg|jpeg|gif|webp|ico)$/i.test(pathname)
+  );
 }
 
 function applySubdomainRouting(request: NextRequest): NextResponse | null {
@@ -30,47 +33,38 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
     return null;
   }
 
+  if (isStaticOrApi(pathname)) {
+    return null;
+  }
+
+  // fiyatgor → yalnızca mağaza (/)
+  if (storeHost && host === storeHost) {
+    if (isAdminPanelPath(pathname) || isEmployeePanelPath(pathname)) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    return null;
+  }
+
+  // admin → yalnızca /admin/*
   if (adminHost && host === adminHost) {
     if (pathname === "/") {
-      return NextResponse.redirect(new URL("/admin", request.url));
+      return NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.url));
     }
-    if (pathname.startsWith("/yonetici") && employeeHost) {
-      return redirectToHost(employeeHost, request, pathname);
-    }
-    if (
-      !pathname.startsWith("/admin") &&
-      !pathname.startsWith("/api") &&
-      !pathname.startsWith("/_next")
-    ) {
-      return redirectToHost(storeHost ?? adminHost, request, pathname);
+    if (!isAdminPanelPath(pathname)) {
+      return NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.url));
     }
     return null;
   }
 
+  // personel → yalnızca /yonetici/*
   if (employeeHost && host === employeeHost) {
     if (pathname === "/") {
-      return NextResponse.redirect(new URL("/yonetici", request.url));
+      return NextResponse.redirect(new URL(EMPLOYEE_LOGIN_PATH, request.url));
     }
-    if (pathname.startsWith("/admin") && adminHost) {
-      return redirectToHost(adminHost, request, pathname);
-    }
-    if (
-      !pathname.startsWith("/yonetici") &&
-      !pathname.startsWith("/api") &&
-      !pathname.startsWith("/_next")
-    ) {
-      return redirectToHost(storeHost ?? employeeHost, request, pathname);
+    if (!isEmployeePanelPath(pathname)) {
+      return NextResponse.redirect(new URL(EMPLOYEE_LOGIN_PATH, request.url));
     }
     return null;
-  }
-
-  if (storeHost && host === storeHost) {
-    if (pathname.startsWith("/admin") && adminHost) {
-      return redirectToHost(adminHost, request, pathname);
-    }
-    if (pathname.startsWith("/yonetici") && employeeHost) {
-      return redirectToHost(employeeHost, request, pathname);
-    }
   }
 
   return null;
@@ -82,14 +76,14 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/admin")) {
-    if (pathname === "/admin/login") {
+  if (isAdminPanelPath(pathname)) {
+    if (pathname === ADMIN_LOGIN_PATH) {
       return NextResponse.next();
     }
 
     const adminSession = request.cookies.get(ADMIN_COOKIE)?.value;
     if (!(await isValidAdminToken(adminSession))) {
-      const login = new URL("/admin/login", request.url);
+      const login = new URL(ADMIN_LOGIN_PATH, request.url);
       login.searchParams.set("from", pathname);
       return NextResponse.redirect(login);
     }
@@ -97,14 +91,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/yonetici")) {
-    if (pathname === "/yonetici/login") {
+  if (isEmployeePanelPath(pathname)) {
+    if (pathname === EMPLOYEE_LOGIN_PATH) {
       return NextResponse.next();
     }
 
     const managerSession = request.cookies.get(MANAGER_COOKIE)?.value;
     if (!(await isValidManagerToken(managerSession))) {
-      const login = new URL("/yonetici/login", request.url);
+      const login = new URL(EMPLOYEE_LOGIN_PATH, request.url);
       login.searchParams.set("from", pathname);
       return NextResponse.redirect(login);
     }
@@ -117,10 +111,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/",
-    "/admin",
-    "/admin/:path*",
-    "/yonetici",
-    "/yonetici/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

@@ -3,9 +3,16 @@
 import BrandLogo from "@/components/BrandLogo";
 import Link from "next/link";
 import LoginForm from "@/components/LoginForm";
+import { ADMIN_ENTRY_PATH, getStoreUrl, shouldShowStoreLink } from "@/lib/domains";
 import { adminLogin } from "@/lib/admin-api";
+import { useEffect, useState } from "react";
 
 export default function AdminLoginPage() {
+  const [showStoreLink, setShowStoreLink] = useState(false);
+
+  useEffect(() => {
+    setShowStoreLink(shouldShowStoreLink(window.location.hostname));
+  }, []);
   return (
     <div className="flex min-h-full flex-1">
       <div className="relative hidden w-[42%] max-w-xl flex-col justify-between overflow-hidden bg-zinc-900 p-12 xl:p-14 lg:flex">
@@ -42,7 +49,7 @@ export default function AdminLoginPage() {
             <LoginForm
               title="Admin girişi"
               subtitle="Yönetim paneline erişin"
-              defaultRedirect="/admin"
+              defaultRedirect={ADMIN_ENTRY_PATH}
               onLogin={adminLogin}
               embedded
               errorHint={
@@ -52,12 +59,14 @@ export default function AdminLoginPage() {
               }
             />
           </div>
-          <Link
-            href="/"
-            className="mt-5 block text-center text-sm font-medium text-zinc-500 transition hover:text-accent"
-          >
-            ← Mağaza arayüzüne dön
-          </Link>
+          {showStoreLink && (
+            <Link
+              href={getStoreUrl()}
+              className="mt-5 block text-center text-sm font-medium text-zinc-500 transition hover:text-accent"
+            >
+              ← Mağaza arayüzüne dön
+            </Link>
+          )}
         </div>
       </div>
     </div>

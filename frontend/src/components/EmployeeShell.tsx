@@ -6,86 +6,48 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getHealth } from "@/lib/api";
 import { fetchManagerSession, managerLogout } from "@/lib/manager-api";
-import { hasPermission } from "@/lib/permissions";
+import { getStoreUrl, shouldShowStoreLink } from "@/lib/domains";
+import {
+  EMPLOYEE_NAV,
+  canAccessEmployeeNavItem,
+  getEmployeePageTitle,
+  isEmployeeNavActive,
+} from "@/lib/employee-nav";
 import type { EmployeeSession } from "@/types/employee";
 
-const NAV_ITEMS = [
-  {
-    href: "/yonetici",
-    label: "Fiyat gör",
-    shortLabel: "Fiyat",
-    permission: "scan" as const,
-    exact: true,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-18 0h2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM12 16h.01" />
-      </svg>
-    ),
-  },
-  {
-    href: "/yonetici/sepet",
-    label: "Siparişler",
-    shortLabel: "Sipariş",
-    permission: "orders.view" as const,
-    exact: false,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/yonetici/urunler",
-    label: "Ürünler",
-    shortLabel: "Ürünler",
-    permission: "products.view" as const,
-    exact: false,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-      </svg>
-    ),
-  },
-  {
-    href: "/yonetici/katalog",
-    label: "Excel",
-    shortLabel: "Excel",
-    permission: "excel.download" as const,
-    exact: false,
-    altPermission: "excel.upload" as const,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
-  },
-];
-
-const PAGE_TITLES: Record<string, string> = {
-  "/yonetici": "Fiyat gör",
-  "/yonetici/sepet": "Siparişler",
-  "/yonetici/urunler": "Ürünler",
-  "/yonetici/katalog": "Excel",
+const NAV_ICONS: Record<string, React.ReactNode> = {
+  "/yonetici": (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-18 0h2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM12 16h.01" />
+    </svg>
+  ),
+  "/yonetici/sepet": (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+    </svg>
+  ),
+  "/yonetici/urunler": (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+    </svg>
+  ),
+  "/yonetici/katalog": (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  ),
 };
-
-function isActive(pathname: string, href: string, exact: boolean) {
-  if (exact) return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function getPageTitle(pathname: string): string {
-  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
-  for (const [path, title] of Object.entries(PAGE_TITLES)) {
-    if (path !== "/yonetici" && pathname.startsWith(path)) return title;
-  }
-  return "Çalışan paneli";
-}
 
 export default function EmployeeShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [session, setSession] = useState<EmployeeSession | null>(null);
   const [productCount, setProductCount] = useState<number | null>(null);
+  const [showStoreLink, setShowStoreLink] = useState(false);
+
+  useEffect(() => {
+    setShowStoreLink(shouldShowStoreLink(window.location.hostname));
+  }, []);
 
   const refreshHealth = useCallback(async () => {
     try {
@@ -107,16 +69,12 @@ export default function EmployeeShell({ children }: { children: React.ReactNode 
     router.refresh();
   };
 
-  const visibleNav = NAV_ITEMS.filter((item) => {
+  const visibleNav = EMPLOYEE_NAV.filter((item) => {
     if (!session) return item.permission === "scan";
-    if (hasPermission(session.permissions, item.permission)) return true;
-    if ("altPermission" in item && item.altPermission) {
-      return hasPermission(session.permissions, item.altPermission);
-    }
-    return false;
+    return canAccessEmployeeNavItem(session.permissions, item);
   });
 
-  const pageTitle = getPageTitle(pathname);
+  const pageTitle = getEmployeePageTitle(pathname);
 
   return (
     <div className="employee-layout">
@@ -128,16 +86,18 @@ export default function EmployeeShell({ children }: { children: React.ReactNode 
           </Link>
 
           <div className="employee-header-actions">
-            <Link
-              href="/"
-              className="employee-header-icon-btn employee-header-icon-store"
-              title="Mağaza"
-              aria-label="Mağaza"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-            </Link>
+            {showStoreLink && (
+              <Link
+                href={getStoreUrl()}
+                className="employee-header-icon-btn employee-header-icon-store"
+                title="Mağaza"
+                aria-label="Mağaza"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => void handleLogout()}
@@ -167,14 +127,14 @@ export default function EmployeeShell({ children }: { children: React.ReactNode 
         {visibleNav.length > 1 && (
           <nav className="employee-topnav" aria-label="Personel menü">
             {visibleNav.map((item) => {
-              const active = isActive(pathname, item.href, item.exact);
+              const active = isEmployeeNavActive(pathname, item.href, item.exact);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`employee-topnav-link${active ? " employee-topnav-link-active" : ""}`}
                 >
-                  <span className="employee-topnav-icon">{item.icon}</span>
+                  <span className="employee-topnav-icon">{NAV_ICONS[item.href]}</span>
                   {item.label}
                 </Link>
               );
@@ -188,14 +148,14 @@ export default function EmployeeShell({ children }: { children: React.ReactNode 
       {visibleNav.length > 1 && (
         <nav className="employee-bottomnav" aria-label="Hızlı menü">
           {visibleNav.map((item) => {
-            const active = isActive(pathname, item.href, item.exact);
+            const active = isEmployeeNavActive(pathname, item.href, item.exact);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={`employee-bottomnav-item${active ? " employee-bottomnav-item-active" : ""}`}
               >
-                <span className="employee-bottomnav-icon">{item.icon}</span>
+                <span className="employee-bottomnav-icon">{NAV_ICONS[item.href]}</span>
                 <span>{item.shortLabel}</span>
               </Link>
             );
