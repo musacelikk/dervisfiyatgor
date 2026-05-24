@@ -18,7 +18,7 @@ import {
   type PageSizeOption,
   type PermissionId,
 } from "@/lib/permissions";
-import type { Product } from "@/types/product";
+import type { Product, StockCountState, StockCountStatus } from "@/types/product";
 import AdminPagination from "./AdminPagination";
 import AdminModal from "./AdminModal";
 import AdminIconButton from "./AdminIconButton";
@@ -53,6 +53,13 @@ function formatPrice(value: number | null | undefined): string {
 
 function parseNum(value: string): number | null {
   return parseNumericInput(value);
+}
+
+function stockCountClass(active: boolean, status?: StockCountStatus): string {
+  if (!active) return "";
+  if (status === "updated") return "stock-count-row-updated";
+  if (status === "unchanged") return "stock-count-row-unchanged";
+  return "stock-count-row-pending";
 }
 
 function productToForm(p: Product) {
@@ -100,6 +107,7 @@ export default function ProductsPage({
   const [formMode, setFormMode] = useState<FormMode | null>(null);
   const [form, setForm] = useState<FormState>(productToForm(emptyProduct()));
   const [saving, setSaving] = useState(false);
+  const [stockCount, setStockCount] = useState<StockCountState | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -124,6 +132,7 @@ export default function ProductsPage({
       setProducts(data.products);
       setTotal(data.total);
       setTotalPages(data.totalPages);
+      setStockCount(data.stockCount ?? { active: false, startedAt: null });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Liste yüklenemedi.");
     } finally {
@@ -207,6 +216,8 @@ export default function ProductsPage({
     </button>
   ) : null;
 
+  const countActive = Boolean(stockCount?.active);
+
   return (
     <div className={`admin-page admin-page-wide${isEmployee ? " employee-page" : ""}`}>
       <div className="admin-toolbar-card">
@@ -264,6 +275,17 @@ export default function ProductsPage({
         <div className="admin-alert admin-alert-error mt-4">{error}</div>
       )}
 
+      {countActive && (
+        <div className="stock-count-banner" role="status">
+          <p className="stock-count-banner-title">Stok sayımı aktif</p>
+          <p className="stock-count-banner-desc">
+            <span className="stock-count-legend-item stock-count-legend-pending">Kontrol edilmedi</span>
+            <span className="stock-count-legend-item stock-count-legend-updated">Güncellendi</span>
+            <span className="stock-count-legend-item stock-count-legend-unchanged">Değişiklik yok</span>
+          </p>
+        </div>
+      )}
+
       {loading ? (
         <div className="admin-skeleton mt-4">Ürünler yükleniyor…</div>
       ) : products.length === 0 ? (
@@ -300,7 +322,10 @@ export default function ProductsPage({
               </thead>
               <tbody>
                 {products.map((p) => (
-                  <tr key={p.stockCode}>
+                  <tr
+                    key={p.stockCode}
+                    className={stockCountClass(countActive, p.countStatus) || undefined}
+                  >
                     <td className="font-mono text-xs font-medium text-zinc-800">
                       {p.stockCode}
                     </td>
@@ -345,7 +370,10 @@ export default function ProductsPage({
 
           <div className="mt-4 space-y-3 lg:hidden">
             {products.map((p) => (
-              <article key={p.stockCode} className="admin-product-card">
+              <article
+                key={p.stockCode}
+                className={`admin-product-card ${stockCountClass(countActive, p.countStatus)}`.trim()}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-semibold text-zinc-900">{p.name}</p>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import ScannerFrame from "@/components/ScannerFrame";
+import { readScannerFlashPref, writeScannerFlashPref } from "@/lib/scanner-flash";
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void | Promise<void>;
@@ -32,6 +33,9 @@ export default function BarcodeScanner({ onScan, variant = "default" }: BarcodeS
   const [starting, setStarting] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [flashOn, setFlashOn] = useState(() => readScannerFlashPref());
+  const [flashSupported, setFlashSupported] = useState(false);
+  const [flashBusy, setFlashBusy] = useState(false);
 
   useEffect(() => {
     onScanRef.current = onScan;
@@ -57,8 +61,46 @@ export default function BarcodeScanner({ onScan, variant = "default" }: BarcodeS
     await stopScanner();
     setScanning(false);
     setStarting(false);
+    setFlashSupported(false);
     scanLockRef.current = false;
   }, [stopScanner]);
+
+  const applyTorch = useCallback(async (scanner: Html5Qrcode, enabled: boolean) => {
+    try {
+      const torch = scanner.getRunningTrackCameraCapabilities().torchFeature();
+      if (!torch.isSupported()) {
+        setFlashSupported(false);
+        return;
+      }
+
+      setFlashSupported(true);
+      await torch.apply(enabled);
+      const active = torch.value() ?? enabled;
+      setFlashOn(active);
+      writeScannerFlashPref(active);
+    } catch {
+      setFlashSupported(false);
+    }
+  }, []);
+
+  const toggleFlash = useCallback(async () => {
+    const scanner = scannerRef.current;
+    if (!scanner || !flashSupported || flashBusy || resolving) return;
+
+    setFlashBusy(true);
+    try {
+      const torch = scanner.getRunningTrackCameraCapabilities().torchFeature();
+      const next = !flashOn;
+      await torch.apply(next);
+      const active = torch.value() ?? next;
+      setFlashOn(active);
+      writeScannerFlashPref(active);
+    } catch {
+      /* ignore unsupported or transient torch errors */
+    } finally {
+      setFlashBusy(false);
+    }
+  }, [flashBusy, flashOn, flashSupported, resolving]);
 
   const handleDecoded = useCallback(
     async (decoded: string) => {
@@ -110,6 +152,10 @@ export default function BarcodeScanner({ onScan, variant = "default" }: BarcodeS
         },
         () => {}
       );
+
+      if (scannerRef.current) {
+        await applyTorch(scannerRef.current, readScannerFlashPref());
+      }
     } catch (err) {
       await stopScanner();
       setScanning(false);
@@ -122,7 +168,7 @@ export default function BarcodeScanner({ onScan, variant = "default" }: BarcodeS
     } finally {
       setStarting(false);
     }
-  }, [containerId, handleDecoded, scanning, starting, stopScanner]);
+  }, [applyTorch, containerId, handleDecoded, scanning, starting, stopScanner]);
 
   useEffect(() => {
     if (!scanning) return;
@@ -202,28 +248,58 @@ export default function BarcodeScanner({ onScan, variant = "default" }: BarcodeS
           aria-modal="true"
           aria-label="Barkod tarama"
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
-            <div className="min-w-0 flex-1">
-              <p className="text-base font-semibold">Barkod okut</p>
-              <p className="mt-0.5 text-xs text-zinc-400">
-                {resolving
-                  ? "Ürün aranıyor…"
-                  : starting
-                    ? "Kamera açılıyor…"
-                    : "Barkodu çerçeveye hizalayın"}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={resolving}
-              onClick={() => void exitScanMode()}
-              className="shrink-0 rounded-lg bg-white/10 px-3 py-2 text-sm font-medium transition hover:bg-white/20 disabled:opacity-40"
-            >
-              Kapat
-            </button>
-          </div>
-
           <div className="relative min-h-0 flex-1 overflow-hidden">
+            <div className="absolute left-0 top-0 z-20 flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+              <button
+                type="button"
+                disabled={resolving}
+                onClick={() => void exitScanMode()}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition hover:bg-black/60 disabled:opacity-40"
+                aria-label="Geri"
+              >
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19 8 12l7-7" />
+                </svg>
+              </button>
+
+              {flashSupported && (
+                <button
+                  type="button"
+                  disabled={flashBusy || resolving}
+                  onClick={() => void toggleFlash()}
+                  className={`flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-sm transition disabled:opacity-40 ${
+                    flashOn
+                      ? "bg-amber-400/90 text-zinc-950 hover:bg-amber-300"
+                      : "bg-black/45 text-white hover:bg-black/60"
+                  }`}
+                  aria-label={flashOn ? "Flaşı kapat" : "Flaşı aç"}
+                  aria-pressed={flashOn}
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13 10V3L4 14h7v7l9-11h-7Z"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+
             <div
               id={containerId}
               className="barcode-scanner-view barcode-scanner-preview absolute inset-0"
@@ -240,6 +316,17 @@ export default function BarcodeScanner({ onScan, variant = "default" }: BarcodeS
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="shrink-0 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 text-center text-white">
+            <p className="text-base font-semibold">Barkod okut</p>
+            <p className="mt-1 text-xs text-zinc-400">
+              {resolving
+                ? "Ürün aranıyor…"
+                : starting
+                  ? "Kamera açılıyor…"
+                  : "Barkodu çerçeveye hizalayın"}
+            </p>
           </div>
         </div>
       )}

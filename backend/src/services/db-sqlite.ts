@@ -14,13 +14,30 @@ function resolveDataDir(): string {
 
 let sqliteDb: Database.Database | null = null;
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 const NAME_SEARCH_LIMIT = 30;
 
 function migrate(database: Database.Database): void {
   const currentVersion = database.pragma("user_version", { simple: true }) as number;
 
   if (currentVersion >= SCHEMA_VERSION) return;
+
+  if (currentVersion === 9) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS stock_count_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        active INTEGER NOT NULL DEFAULT 0,
+        started_at TEXT
+      );
+      INSERT OR IGNORE INTO stock_count_state (id, active) VALUES (1, 0);
+      CREATE TABLE IF NOT EXISTS stock_count_items (
+        stock_code TEXT PRIMARY KEY,
+        status TEXT NOT NULL CHECK (status IN ('updated', 'unchanged'))
+      );
+    `);
+    database.pragma(`user_version = ${SCHEMA_VERSION}`);
+    return;
+  }
 
   if (currentVersion === 8) {
     database.exec(`

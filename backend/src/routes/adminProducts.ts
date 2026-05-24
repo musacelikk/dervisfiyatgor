@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAdminOrEmployee } from "../middleware/adminAuth";
 import { getAuditContext } from "../lib/auditContext";
+import { productDataChanged } from "../lib/productCompare";
 import { logAuditFromContext } from "../services/audit";
 import {
   createProduct,
@@ -10,7 +11,14 @@ import {
   updateProduct,
 } from "../services/db";
 import { rowToProduct } from "../lib/product-map";
+import {
+  getStockCountState,
+  getStockCountStatuses,
+  isStockCountActive,
+  recordStockCountItem,
+} from "../services/stockCount";
 import type { Product } from "../types/product";
+import type { StockCountStatus } from "../types/stockCount";
 
 const router = Router();
 
@@ -80,8 +88,21 @@ router.get("/", async (req, res) => {
   const totalPages =
     limit === "all" ? 1 : Math.max(1, Math.ceil(total / effectiveLimit));
 
+  const stockCount = await getStockCountState();
+  const statusMap = stockCount.active
+    ? await getStockCountStatuses(rows.map((row) => row.stock_code))
+    : {};
+
+  const products = rows.map((row) => {
+    const product = rowToProduct(row);
+    if (!stockCount.active) return product;
+    const countStatus: StockCountStatus = statusMap[row.stock_code] ?? "pending";
+    return { ...product, countStatus };
+  });
+
   res.json({
-    products: rows.map(rowToProduct),
+    products,
+    stockCount,
     total,
     page: limit === "all" ? 1 : page,
     limit: limit === "all" ? total : limit,
@@ -142,9 +163,22 @@ router.get("/:stockCode", async (req, res) => {
 router.patch("/:stockCode", async (req, res) => {
   try {
     const code = decodeURIComponent(req.params.stockCode);
+    const existing = await getProductByStockCode(code);
+    if (!existing) {
+      res.status(404).json({ error: "Ürün bulunamadı." });
+      return;
+    }
+
+    const before = rowToProduct(existing);
     const updates = parseBody(req.body);
     delete updates.stockCode;
     const product = await updateProduct(code, updates);
+
+    if (await isStockCountActive()) {
+      const changed = productDataChanged(before, product);
+      await recordStockCountItem(code, changed ? "updated" : "unchanged");
+    }
+
     logAuditFromContext(getAuditContext(req), {
       action: "product.update",
       resourceType: "product",

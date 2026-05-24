@@ -126,6 +126,20 @@ async function migratePostgres(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_products_name_norm ON products(name_norm);
     CREATE INDEX IF NOT EXISTS idx_products_stock_code_norm ON products(stock_code_norm);
     CREATE INDEX IF NOT EXISTS idx_products_barcode_norm ON products(barcode_norm);
+
+    CREATE TABLE IF NOT EXISTS stock_count_state (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      active BOOLEAN NOT NULL DEFAULT FALSE,
+      started_at TIMESTAMPTZ
+    );
+    INSERT INTO stock_count_state (id, active)
+    VALUES (1, FALSE)
+    ON CONFLICT (id) DO NOTHING;
+
+    CREATE TABLE IF NOT EXISTS stock_count_items (
+      stock_code TEXT PRIMARY KEY,
+      status TEXT NOT NULL CHECK (status IN ('updated', 'unchanged'))
+    );
   `);
 }
 

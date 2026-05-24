@@ -1,15 +1,5 @@
-import AdminPlaceholder from "@/components/admin/AdminPlaceholder";
+import SettingsPage from "@/components/admin/SettingsPage";
 
 export default function AyarlarPage() {
-  return (
-    <AdminPlaceholder
-      title="Ayarlar"
-      description="Mağaza bilgileri, API bağlantısı ve admin tercihlerini bu bölümden yapılandırabileceksiniz."
-      items={[
-        "Mağaza adı ve iletişim bilgileri",
-        "Backend API adresi",
-        "Varsayılan fiyat listesi ve görünüm ayarları",
-      ]}
-    />
-  );
+  return <SettingsPage />;
 }

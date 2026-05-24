@@ -24,6 +24,7 @@ import employeeAuthRouter from "./routes/employeeAuth";
 import adminAuthRouter from "./routes/adminAuth";
 import adminOrdersRouter from "./routes/adminOrders";
 import adminAuditRouter from "./routes/adminAudit";
+import stockCountRouter from "./routes/stockCount";
 import ordersRouter from "./routes/orders";
 import { initDatabase, isPostgres } from "./lib/database";
 import { scheduleProductNormBackfill } from "./lib/backfillProductNorms";
@@ -49,6 +50,7 @@ app.use("/api/employees", employeesRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/admin/orders", adminOrdersRouter);
 app.use("/api/admin/audit", adminAuditRouter);
+app.use("/api/admin/stock-count", stockCountRouter);
 app.use("/api/auth/employee", employeeAuthRouter);
 app.use("/api/auth/admin", adminAuthRouter);
 

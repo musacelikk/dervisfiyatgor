@@ -3,7 +3,7 @@ import type { PageSizeOption } from "@/lib/permissions";
 import { pageSizeToLimit } from "@/lib/permissions";
 import type { Employee } from "@/types/employee";
 import type { PermissionId } from "@/lib/permissions";
-import type { ImportResult, Product, ProductListResult } from "@/types/product";
+import type { ImportResult, Product, ProductListResult, StockCountState } from "@/types/product";
 
 async function downloadExcel(type: "template" | "catalog"): Promise<void> {
   const res = await fetch(`/api/admin/export?type=${type}`);
@@ -220,4 +220,31 @@ export async function fetchAuditLogs(options: {
     throw new Error(typeof body.error === "string" ? body.error : "Loglar yüklenemedi.");
   }
   return body as AuditListResult;
+}
+
+export async function fetchStockCountState(): Promise<StockCountState> {
+  const res = await fetch("/api/admin/stock-count");
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof body.error === "string" ? body.error : "Stok sayım durumu alınamadı.");
+  }
+  return body as StockCountState;
+}
+
+export async function startStockCount(): Promise<StockCountState> {
+  const res = await fetch("/api/admin/stock-count/start", { method: "POST" });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof body.error === "string" ? body.error : "Stok sayımı başlatılamadı.");
+  }
+  return body as StockCountState;
+}
+
+export async function stopStockCount(): Promise<StockCountState> {
+  const res = await fetch("/api/admin/stock-count/stop", { method: "POST" });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof body.error === "string" ? body.error : "Stok sayımı bitirilemedi.");
+  }
+  return body as StockCountState;
 }
