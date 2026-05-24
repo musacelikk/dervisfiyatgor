@@ -1,46 +1,41 @@
-import { sha256Hex } from "@/lib/crypto";
+import { verifyEmployeeSession } from "@/lib/session-verify";
 
 export const MANAGER_COOKIE = "manager_session";
 
-export function parseManagerCookie(
-  value: string | undefined
-): { employeeId: number; token: string } | null {
-  if (!value) return null;
+/** Eski `e:id:token` formatını da okur; yeni oturumlar yalnızca token içerir. */
+export function normalizeManagerToken(value: string | undefined): string | undefined {
+  if (!value) return undefined;
   const parts = value.split(":");
-  if (parts.length !== 3 || parts[0] !== "e") return null;
-  const employeeId = Number(parts[1]);
-  if (!Number.isFinite(employeeId) || employeeId < 1) return null;
-  return { employeeId, token: parts[2] ?? "" };
-}
-
-export function buildManagerCookieValue(employeeId: number, token: string): string {
-  return `e:${employeeId}:${token}`;
-}
-
-export async function getManagerTokenForEmployee(employeeId: number): Promise<string> {
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) {
-    throw new Error("ADMIN_SECRET tanımlı değil.");
+  if (parts.length === 3 && parts[0] === "e") {
+    return parts[2] || undefined;
   }
-  return sha256Hex(`employee:${employeeId}:${secret}`);
+  return value;
 }
 
 export async function isValidManagerToken(
   value: string | undefined
 ): Promise<boolean> {
-  const parsed = parseManagerCookie(value);
-  if (!parsed) return false;
-  try {
-    const expected = await getManagerTokenForEmployee(parsed.employeeId);
-    return parsed.token === expected;
-  } catch {
-    return false;
-  }
+  return verifyEmployeeSession(normalizeManagerToken(value));
 }
 
 export async function getManagerEmployeeId(
   value: string | undefined
 ): Promise<number | null> {
-  if (!(await isValidManagerToken(value))) return null;
-  return parseManagerCookie(value)!.employeeId;
+  const token = normalizeManagerToken(value);
+  if (!token) return null;
+  if (!(await verifyEmployeeSession(token))) return null;
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+  try {
+    const res = await fetch(`${API_URL}/api/auth/employee/me`, {
+      headers: { "X-Employee-Session": token },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { employee?: { id?: number } };
+    const id = data.employee?.id;
+    return typeof id === "number" && Number.isFinite(id) ? id : null;
+  } catch {
+    return null;
+  }
 }

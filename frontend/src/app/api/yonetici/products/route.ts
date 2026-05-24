@@ -18,7 +18,8 @@ export async function GET(request: Request) {
 
   try {
     const data = await adminBackendFetch<ProductListResult>(
-      `/api/admin/products?${query}`
+      `/api/admin/products?${query}`,
+      { auth: "employee" }
     );
     return NextResponse.json(data);
   } catch (err) {
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       actor: { type: "employee", id: auth.id, name: auth.name },
+      auth: "employee",
     });
     return NextResponse.json(data, { status: 201 });
   } catch (err) {

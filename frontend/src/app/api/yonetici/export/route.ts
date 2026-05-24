@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireEmployeePermission } from "@/lib/employee-route-auth";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { backendFetchWithSession } from "@/lib/admin-backend";
 
 export async function GET(request: Request) {
   const auth = await requireEmployeePermission("excel.download");
   if (auth instanceof NextResponse) return auth;
-
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) {
-    return NextResponse.json({ error: "ADMIN_SECRET tanımlı değil." }, { status: 500 });
-  }
 
   const type = new URL(request.url).searchParams.get("type");
   const path = type === "template" ? "/api/export/template" : "/api/export/products";
@@ -21,17 +15,13 @@ export async function GET(request: Request) {
 
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, {
-      headers: {
-        "X-Admin-Key": secret,
-        "X-Actor-Type": "employee",
-        "X-Actor-Id": String(auth.id),
-        "X-Actor-Name": encodeURIComponent(auth.name),
-      },
+    res = await backendFetchWithSession(path, {
+      auth: "employee",
+      actor: { type: "employee", id: auth.id, name: auth.name },
     });
   } catch {
     return NextResponse.json(
-      { error: `Backend'e bağlanılamadı (${API_URL}).` },
+      { error: `Backend'e bağlanılamadı.` },
       { status: 503 }
     );
   }

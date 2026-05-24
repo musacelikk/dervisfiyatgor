@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireEmployeePermission } from "@/lib/employee-route-auth";
+import { backendFetchWithSession } from "@/lib/admin-backend";
 import type { ImportResult } from "@/types/product";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 export async function POST(request: Request) {
   const auth = await requireEmployeePermission("excel.upload");
   if (auth instanceof NextResponse) return auth;
-
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) {
-    return NextResponse.json({ error: "ADMIN_SECRET tanımlı değil." }, { status: 500 });
-  }
 
   const { searchParams } = new URL(request.url);
   const replace = searchParams.get("replace") === "true";
@@ -27,19 +21,15 @@ export async function POST(request: Request) {
 
   let res: Response;
   try {
-    res = await fetch(`${API_URL}/api/import?replace=${replace}`, {
+    res = await backendFetchWithSession(`/api/import?replace=${replace}`, {
       method: "POST",
-      headers: {
-        "X-Admin-Key": secret,
-        "X-Actor-Type": "employee",
-        "X-Actor-Id": String(auth.id),
-        "X-Actor-Name": encodeURIComponent(auth.name),
-      },
+      auth: "employee",
+      actor: { type: "employee", id: auth.id, name: auth.name },
       body: backendForm,
     });
   } catch {
     return NextResponse.json(
-      { error: `Backend'e bağlanılamadı (${API_URL}).` },
+      { error: `Backend'e bağlanılamadı.` },
       { status: 503 }
     );
   }

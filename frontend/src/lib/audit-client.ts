@@ -1,3 +1,6 @@
+import { cookies } from "next/headers";
+import { ADMIN_COOKIE } from "@/lib/admin-session";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 export type ClientAuditInput = {
@@ -12,16 +15,16 @@ export type ClientAuditInput = {
   success?: boolean;
 };
 
-/** Sunucu tarafı (API route) audit kaydı — oturum gerekmez, ADMIN_SECRET kullanır. */
+/** Sunucu tarafı (API route) audit kaydı — admin oturumu ile backend'e yazar. */
 export async function logServerAudit(input: ClientAuditInput): Promise<void> {
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) return;
+  const token = (await cookies()).get(ADMIN_COOKIE)?.value;
+  if (!token) return;
 
   try {
     await fetch(`${API_URL}/api/admin/audit`, {
       method: "POST",
       headers: {
-        "X-Admin-Key": secret,
+        "X-Admin-Session": token,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(input),

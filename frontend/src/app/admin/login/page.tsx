@@ -47,8 +47,7 @@ export default function AdminLoginPage() {
               embedded
               errorHint={
                 <p className="text-xs text-red-600/90">
-                  Şifre <code className="rounded bg-red-100 px-1">ADMIN_SECRET</code> ile aynı
-                  olmalı.
+                  Yönetici şifrenizi girin.
                 </p>
               }
             />

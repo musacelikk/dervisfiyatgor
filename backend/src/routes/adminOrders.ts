@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAdmin } from "../middleware/adminAuth";
+import { requireAdminOrEmployee } from "../middleware/adminAuth";
 import { getAuditContext } from "../lib/auditContext";
 import { logAuditFromContext } from "../services/audit";
 import { getOrderById, listOrders, updateOrderStatus } from "../services/orders";
@@ -7,7 +7,7 @@ import type { OrderStatus } from "../types/order";
 
 const router = Router();
 
-router.use(requireAdmin);
+router.use(requireAdminOrEmployee);
 
 router.get("/", async (_req, res) => {
   try {

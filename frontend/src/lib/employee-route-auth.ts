@@ -1,24 +1,31 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { redirect } from "next/navigation";
-import { adminBackendFetch } from "@/lib/admin-backend";
 import {
   hasPermission,
   type PermissionId,
 } from "@/lib/permissions";
-import { getManagerEmployeeId, MANAGER_COOKIE } from "@/lib/manager-session";
+import { MANAGER_COOKIE, normalizeManagerToken } from "@/lib/manager-session";
 import type { Employee } from "@/types/employee";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
 export async function getEmployeeSession(): Promise<Employee | null> {
-  const employeeId = await getManagerEmployeeId(
+  const token = normalizeManagerToken(
     (await cookies()).get(MANAGER_COOKIE)?.value
   );
-  if (!employeeId) return null;
+  if (!token) return null;
 
   try {
-    const data = await adminBackendFetch<{ employees: Employee[] }>("/api/employees");
-    const employee = data.employees.find((e) => e.id === employeeId && e.active);
-    return employee ?? null;
+    const res = await fetch(`${API_URL}/api/auth/employee/me`, {
+      headers: { "X-Employee-Session": token },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { employee?: Employee };
+    const employee = data.employee;
+    if (!employee?.active) return null;
+    return employee;
   } catch {
     return null;
   }

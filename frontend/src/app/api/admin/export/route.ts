@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { ADMIN_COOKIE, isValidAdminToken } from "@/lib/admin-session";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { backendFetchWithSession } from "@/lib/admin-backend";
 
 export async function GET(request: Request) {
   const session = (await cookies()).get(ADMIN_COOKIE)?.value;
   if (!(await isValidAdminToken(session))) {
     return NextResponse.json({ error: "Oturum gerekli." }, { status: 401 });
-  }
-
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) {
-    return NextResponse.json({ error: "ADMIN_SECRET tanımlı değil." }, { status: 500 });
   }
 
   const type = new URL(request.url).searchParams.get("type");
@@ -24,12 +18,10 @@ export async function GET(request: Request) {
 
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, {
-      headers: { "X-Admin-Key": secret },
-    });
+    res = await backendFetchWithSession(path, { auth: "admin" });
   } catch {
     return NextResponse.json(
-      { error: `Backend'e bağlanılamadı (${API_URL}).` },
+      { error: `Backend'e bağlanılamadı. backend klasöründe "npm run dev" çalıştırın.` },
       { status: 503 }
     );
   }

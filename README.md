@@ -45,17 +45,21 @@ npm run dev
 | Değişken | Açıklama |
 |----------|----------|
 | `PORT` | API portu (varsayılan 4000) |
-| `CORS_ORIGIN` | Frontend adresi |
-| `ADMIN_SECRET` | Excel import ve admin API anahtarı |
+| `CORS_ORIGIN` | Frontend origin'leri (virgülle ayırın) |
+| `ADMIN_SECRET` | Admin panel şifresi (yalnızca backend) |
 
 **Frontend** (`frontend/.env.local`):
 
 | Değişken | Açıklama |
 |----------|----------|
 | `NEXT_PUBLIC_API_URL` | Backend adresi |
-| `ADMIN_SECRET` | Admin girişi — backend ile **aynı** olmalı |
+| `NEXT_PUBLIC_STORE_HOST` | Mağaza subdomain (canlı) |
+| `NEXT_PUBLIC_ADMIN_HOST` | Admin subdomain (canlı) |
+| `NEXT_PUBLIC_EMPLOYEE_HOST` | Personel subdomain (canlı) |
 
-Çalışan girişleri admin panelinden oluşturulur (`/admin/calisanlar`); ortak şifre yoktur.
+Canlı subdomain yapısı ve GoDaddy / Vercel / Railway adımları: **[DEPLOYMENT.md](./DEPLOYMENT.md)**
+
+Admin şifresi yalnızca `backend/.env` içindeki `ADMIN_SECRET` ile kontrol edilir. Çalışan girişleri veritabanındaki hesaplarla doğrulanır.
 
 `.env` dosyalarını oluşturduktan veya değiştirdikten sonra ilgili sunucuyu **yeniden başlatın**.
 
@@ -65,8 +69,9 @@ npm run dev
 |--------|----------|----------|
 | GET | `/api/health` | Sağlık + ürün sayısı |
 | GET | `/api/products/search?by=&q=` | Arama (`by`: barcode, stockCode, name, group) |
-| POST | `/api/import?replace=true` | Excel yükle (`file`, header: `X-Admin-Key`) |
+| POST | `/api/import?replace=true` | Excel yükle (admin/personel oturumu) |
 | GET/POST/PATCH/DELETE | `/api/employees` | Çalışan hesapları (admin) |
+| POST | `/api/auth/admin/login` | Admin girişi |
 | POST | `/api/auth/employee/login` | Çalışan girişi |
 
 ## Excel kolonları
@@ -99,38 +104,32 @@ cd frontend && npm run dev
 
 ### Güvenlik
 
-- `ADMIN_SECRET` ve `MANAGER_SECRET` için güçlü, rastgele değerler kullanın.
+- `ADMIN_SECRET` için güçlü, rastgele bir değer kullanın.
 - Canlıda `ADMIN_SECRET=1` gibi zayıf değerler kullanmayın.
 
-### Backend
+### Backend (Railway)
 
 ```env
 PORT=4000
-CORS_ORIGIN=https://siteniz.com
+CORS_ORIGIN=https://fiyatgor.dervisplastik.com,https://admin.dervisplastik.com,https://personel.dervisplastik.com
 ADMIN_SECRET=guclu-sifreniz
+DATABASE_URL=postgresql://...
 ```
 
-- `backend/data/` kalıcı olmalı (SQLite).
-- Node.js 20+, `npm run build && npm start`
-
-### Frontend
+### Frontend (Vercel)
 
 ```env
-NEXT_PUBLIC_API_URL=https://api.siteniz.com
-ADMIN_SECRET=guclu-sifreniz
-MANAGER_SECRET=yonetici-sifreniz
+NEXT_PUBLIC_API_URL=https://api.dervisplastik.com
+NEXT_PUBLIC_STORE_HOST=fiyatgor.dervisplastik.com
+NEXT_PUBLIC_ADMIN_HOST=admin.dervisplastik.com
+NEXT_PUBLIC_EMPLOYEE_HOST=personel.dervisplastik.com
 ```
 
-- HTTPS zorunlu (mobil barkod kamerası).
-- `NEXT_PUBLIC_API_URL` değişince yeniden deploy edin.
-
-### Vercel (monorepo)
-
-`vercel.json` frontend’i `/`, backend’i `/_/backend` altında yayınlar.
+Detaylı DNS ve domain bağlama: **[DEPLOYMENT.md](./DEPLOYMENT.md)**
 
 ### Kontrol listesi
 
-- [ ] `ADMIN_SECRET` güçlü; frontend ve backend aynı
+- [ ] `ADMIN_SECRET` güçlü (yalnızca backend)
 - [ ] `NEXT_PUBLIC_API_URL` ve `CORS_ORIGIN` doğru
 - [ ] HTTPS aktif
 - [ ] SQLite yedekleniyor

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminBackendFetch } from "@/lib/admin-backend";
-import type { CreateOrderInput, Order } from "@/types/order";
+import type { CreateOrderInput } from "@/types/order";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 

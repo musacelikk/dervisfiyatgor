@@ -17,6 +17,7 @@ export async function PATCH(
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: body.status as OrderStatus }),
+      auth: "employee",
     });
     return NextResponse.json(data);
   } catch (err) {

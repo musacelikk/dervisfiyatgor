@@ -1,3 +1,7 @@
+import { cookies } from "next/headers";
+import { ADMIN_COOKIE } from "@/lib/admin-session";
+import { MANAGER_COOKIE, normalizeManagerToken } from "@/lib/manager-session";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 export type BackendActor = {
@@ -22,25 +26,41 @@ function buildActorHeaders(actor?: BackendActor): Record<string, string> {
 
 export type AdminBackendInit = RequestInit & {
   actor?: BackendActor;
+  auth?: "admin" | "employee";
 };
+
+async function resolveSessionHeader(
+  auth: "admin" | "employee"
+): Promise<Record<string, string>> {
+  const jar = await cookies();
+  if (auth === "employee") {
+    const token = normalizeManagerToken(jar.get(MANAGER_COOKIE)?.value);
+    if (!token) {
+      throw new Error("Oturum gerekli.");
+    }
+    return { "X-Employee-Session": token };
+  }
+
+  const token = jar.get(ADMIN_COOKIE)?.value;
+  if (!token) {
+    throw new Error("Oturum gerekli.");
+  }
+  return { "X-Admin-Session": token };
+}
 
 export async function adminBackendFetch<T>(
   path: string,
   init?: AdminBackendInit
 ): Promise<T> {
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) {
-    throw new Error("ADMIN_SECRET tanımlı değil.");
-  }
-
-  const { actor, ...fetchInit } = init ?? {};
+  const { actor, auth = "admin", ...fetchInit } = init ?? {};
+  const sessionHeaders = await resolveSessionHeader(auth);
 
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
       ...fetchInit,
       headers: {
-        "X-Admin-Key": secret,
+        ...sessionHeaders,
         ...buildActorHeaders(actor),
         ...(fetchInit.headers ?? {}),
       },
@@ -53,14 +73,27 @@ export async function adminBackendFetch<T>(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    let message =
+    const message =
       typeof body.error === "string" ? body.error : `İstek başarısız (${res.status})`;
-    if (res.status === 401 && message === "Yetkisiz erişim.") {
-      message =
-        "Yetkisiz erişim. frontend .env.local içindeki ADMIN_SECRET, backend .env ile aynı olmalı. Değiştirdikten sonra frontend'i yeniden başlatın.";
-    }
     throw new Error(message);
   }
 
   return body as T;
+}
+
+export async function backendFetchWithSession(
+  path: string,
+  init: RequestInit & { auth: "admin" | "employee"; actor?: BackendActor }
+): Promise<Response> {
+  const { auth, actor, ...fetchInit } = init;
+  const sessionHeaders = await resolveSessionHeader(auth);
+
+  return fetch(`${API_URL}${path}`, {
+    ...fetchInit,
+    headers: {
+      ...sessionHeaders,
+      ...buildActorHeaders(actor),
+      ...(fetchInit.headers ?? {}),
+    },
+  });
 }

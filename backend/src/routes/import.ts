@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
-import { requireAdmin } from "../middleware/adminAuth";
+import { requireAdminOrEmployee } from "../middleware/adminAuth";
 import { getAuditContext } from "../lib/auditContext";
 import { parseExcelBuffer, getExcelHeaders } from "../services/excel";
 import { upsertProducts, clearProducts, getProductCount } from "../services/db";
@@ -21,7 +21,7 @@ const upload = multer({
 
 const router = Router();
 
-router.post("/", requireAdmin, upload.single("file"), async (req, res) => {
+router.post("/", requireAdminOrEmployee, upload.single("file"), async (req, res) => {
   if (!req.file) {
     res.status(400).json({ error: "file alanı gerekli (multipart/form-data)." });
     return;

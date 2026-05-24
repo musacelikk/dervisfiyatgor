@@ -1,21 +1,15 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { ADMIN_COOKIE, isValidAdminToken } from "@/lib/admin-session";
+import { backendFetchWithSession } from "@/lib/admin-backend";
 import type { ImportResult } from "@/types/product";
 
 export const maxDuration = 300;
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 export async function POST(request: Request) {
   const session = (await cookies()).get(ADMIN_COOKIE)?.value;
   if (!(await isValidAdminToken(session))) {
     return NextResponse.json({ error: "Oturum gerekli." }, { status: 401 });
-  }
-
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) {
-    return NextResponse.json({ error: "ADMIN_SECRET tanımlı değil." }, { status: 500 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -32,20 +26,17 @@ export async function POST(request: Request) {
 
   let res: Response;
   try {
-    res = await fetch(`${API_URL}/api/import?replace=${replace}`, {
+    res = await backendFetchWithSession(`/api/import?replace=${replace}`, {
       method: "POST",
-      headers: {
-        "X-Admin-Key": secret,
-        "X-Actor-Type": "admin",
-        "X-Actor-Name": encodeURIComponent("Yönetici"),
-      },
+      auth: "admin",
+      actor: { type: "admin" },
       body: backendForm,
       signal: AbortSignal.timeout(290_000),
     });
   } catch {
     return NextResponse.json(
       {
-        error: `Backend'e bağlanılamadı (${API_URL}). backend klasöründe "npm run dev" çalıştırın.`,
+        error: `Backend'e bağlanılamadı. backend klasöründe "npm run dev" çalıştırın.`,
       },
       { status: 503 }
     );

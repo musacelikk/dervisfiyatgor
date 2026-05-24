@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
-import { logServerAudit } from "@/lib/audit-client";
-import { getEmployeeSession } from "@/lib/employee-route-auth";
+import { cookies } from "next/headers";
+import { backendFetchWithSession } from "@/lib/admin-backend";
 import { MANAGER_COOKIE } from "@/lib/manager-session";
 
 export async function POST() {
-  const employee = await getEmployeeSession();
-  if (employee) {
-    await logServerAudit({
-      action: "auth.employee.logout",
-      actorType: "employee",
-      actorId: String(employee.id),
-      actorName: employee.name,
-      resourceType: "auth",
-      message: `Personel çıkışı: ${employee.name}`,
-      metadata: { username: employee.username },
-    });
+  const token = (await cookies()).get(MANAGER_COOKIE)?.value;
+
+  if (token) {
+    try {
+      await backendFetchWithSession("/api/auth/employee/logout", {
+        method: "POST",
+        auth: "employee",
+      });
+    } catch {
+      /* oturum zaten geçersiz olabilir */
+    }
   }
 
   const response = NextResponse.json({ success: true });

@@ -21,6 +21,7 @@ export async function PATCH(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
         actor: { type: "employee", id: auth.id, name: auth.name },
+        auth: "employee",
       }
     );
     return NextResponse.json(data);
@@ -47,6 +48,7 @@ export async function DELETE(
       {
         method: "DELETE",
         actor: { type: "employee", id: auth.id, name: auth.name },
+        auth: "employee",
       }
     );
     return NextResponse.json({ success: true });

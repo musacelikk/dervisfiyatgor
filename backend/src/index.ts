@@ -21,6 +21,7 @@ import exportRouter from "./routes/export";
 import adminProductsRouter from "./routes/adminProducts";
 import employeesRouter from "./routes/employees";
 import employeeAuthRouter from "./routes/employeeAuth";
+import adminAuthRouter from "./routes/adminAuth";
 import adminOrdersRouter from "./routes/adminOrders";
 import adminAuditRouter from "./routes/adminAudit";
 import ordersRouter from "./routes/orders";
@@ -49,6 +50,7 @@ app.use("/api/orders", ordersRouter);
 app.use("/api/admin/orders", adminOrdersRouter);
 app.use("/api/admin/audit", adminAuditRouter);
 app.use("/api/auth/employee", employeeAuthRouter);
+app.use("/api/auth/admin", adminAuthRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Endpoint bulunamadı." });

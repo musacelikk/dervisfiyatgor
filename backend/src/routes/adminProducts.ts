@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAdmin } from "../middleware/adminAuth";
+import { requireAdminOrEmployee } from "../middleware/adminAuth";
 import { getAuditContext } from "../lib/auditContext";
 import { logAuditFromContext } from "../services/audit";
 import {
@@ -14,7 +14,7 @@ import type { Product } from "../types/product";
 
 const router = Router();
 
-router.use(requireAdmin);
+router.use(requireAdminOrEmployee);
 
 function parseBody(body: unknown): Partial<Product> {
   if (!body || typeof body !== "object") return {};

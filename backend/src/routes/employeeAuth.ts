@@ -1,12 +1,23 @@
 import { Router } from "express";
-import { authenticateEmployee } from "../services/employees";
+import { authenticateEmployee, findEmployeeById } from "../services/employees";
+import { rowToEmployee } from "../types/employee";
 import { getAuditContext } from "../lib/auditContext";
 import { logAuditFromContext } from "../services/audit";
+import {
+  createEmployeeSession,
+  revokeEmployeeSession,
+  validateEmployeeSession,
+} from "../services/sessions";
 
 const router = Router();
 
 function clientIp(req: Parameters<typeof getAuditContext>[0]): string | null {
   return getAuditContext(req, "store").ip;
+}
+
+function sessionToken(req: { headers: Record<string, unknown> }): string {
+  const header = req.headers["x-employee-session"];
+  return typeof header === "string" ? header.trim() : "";
 }
 
 router.post("/login", async (req, res) => {
@@ -48,7 +59,65 @@ router.post("/login", async (req, res) => {
     }
   );
 
-  res.json({ employee });
+  const token = createEmployeeSession(employee.id);
+  res.json({ employee, token });
+});
+
+router.post("/verify", (req, res) => {
+  const token =
+    sessionToken(req) ||
+    (typeof req.body?.token === "string" ? req.body.token.trim() : "");
+  const session = validateEmployeeSession(token);
+  if (!session) {
+    res.status(401).json({ error: "Geçersiz oturum." });
+    return;
+  }
+  res.json({ valid: true, employeeId: session.employeeId });
+});
+
+router.get("/me", async (req, res) => {
+  const token = sessionToken(req);
+  const session = validateEmployeeSession(token);
+  if (!session) {
+    res.status(401).json({ error: "Geçersiz oturum." });
+    return;
+  }
+
+  const row = await findEmployeeById(session.employeeId);
+  if (!row || (row.active !== 1 && row.active !== true)) {
+    revokeEmployeeSession(token);
+    res.status(401).json({ error: "Geçersiz oturum." });
+    return;
+  }
+
+  res.json({ employee: rowToEmployee(row) });
+});
+
+router.post("/logout", async (req, res) => {
+  const token = sessionToken(req);
+  const session = validateEmployeeSession(token);
+  if (session) {
+    const row = await findEmployeeById(session.employeeId);
+    if (row) {
+      const employee = rowToEmployee(row);
+      logAuditFromContext(
+        {
+          ...getAuditContext(req, "employee"),
+          actorId: String(employee.id),
+          actorName: employee.name,
+        },
+        {
+          action: "auth.employee.logout",
+          resourceType: "auth",
+          resourceId: String(employee.id),
+          message: `Personel çıkışı: ${employee.name}`,
+          metadata: { username: employee.username },
+        }
+      );
+    }
+  }
+  revokeEmployeeSession(token);
+  res.json({ success: true });
 });
 
 export default router;

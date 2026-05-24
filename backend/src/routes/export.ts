@@ -1,5 +1,5 @@
 import { Router, type Response } from "express";
-import { requireAdmin } from "../middleware/adminAuth";
+import { requireAdminOrEmployee } from "../middleware/adminAuth";
 import { getAuditContext } from "../lib/auditContext";
 import { buildExcelBuffer, buildTemplateExcelBuffer } from "../services/excel";
 import { logAuditFromContext } from "../services/audit";
@@ -20,7 +20,7 @@ function sendExcel(res: Response, buffer: Buffer, filename: string): void {
   res.send(buffer);
 }
 
-router.get("/template", requireAdmin, (req, res) => {
+router.get("/template", requireAdminOrEmployee, (req, res) => {
   logAuditFromContext(getAuditContext(req), {
     action: "catalog.export",
     resourceType: "catalog",
@@ -31,7 +31,7 @@ router.get("/template", requireAdmin, (req, res) => {
   sendExcel(res, buffer, "urun-sablonu.xlsx");
 });
 
-router.get("/products", requireAdmin, async (req, res) => {
+router.get("/products", requireAdminOrEmployee, async (req, res) => {
   const products = (await listAllProducts()).map(rowToProduct);
   logAuditFromContext(getAuditContext(req), {
     action: "catalog.export",

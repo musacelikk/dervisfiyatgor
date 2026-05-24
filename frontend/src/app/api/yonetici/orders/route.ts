@@ -8,7 +8,9 @@ export async function GET() {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const data = await adminBackendFetch<{ orders: Order[]; total: number }>("/api/admin/orders");
+    const data = await adminBackendFetch<{ orders: Order[]; total: number }>("/api/admin/orders", {
+      auth: "employee",
+    });
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json(

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import {
   MANAGER_COOKIE,
-  buildManagerCookieValue,
-  getManagerTokenForEmployee,
 } from "@/lib/manager-session";
+import { backendFetchWithSession } from "@/lib/admin-backend";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -16,13 +15,6 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Kullanıcı adı ve şifre gerekli." },
       { status: 400 }
-    );
-  }
-
-  if (!process.env.ADMIN_SECRET) {
-    return NextResponse.json(
-      { error: "Sunucuda ADMIN_SECRET tanımlı değil." },
-      { status: 500 }
     );
   }
 
@@ -48,20 +40,19 @@ export async function POST(request: Request) {
   }
 
   const employee = data.employee as { id: number; name: string; username: string };
-  const token = await getManagerTokenForEmployee(employee.id);
+  const token = typeof data.token === "string" ? data.token : "";
+  if (!token) {
+    return NextResponse.json({ error: "Oturum oluşturulamadı." }, { status: 502 });
+  }
 
   const response = NextResponse.json({ success: true, employee });
-  response.cookies.set(
-    MANAGER_COOKIE,
-    buildManagerCookieValue(employee.id, token),
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    }
-  );
+  response.cookies.set(MANAGER_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
 
   return response;
 }
