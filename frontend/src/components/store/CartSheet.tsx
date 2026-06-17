@@ -51,6 +51,8 @@ export default function CartSheet({
 
   const itemCount = useMemo(() => cartItemCount(lines), [lines]);
   const total = useMemo(() => cartTotal(lines), [lines]);
+  const cartScope = isPersonnel ? "personnel" : "store";
+  const exportBusy = pdfLoading || excelLoading;
 
   const handleClose = () => {
     onClose();
@@ -103,7 +105,7 @@ export default function CartSheet({
           quantity: line.quantity,
         })),
       });
-      clearCartStorage(isPersonnel ? "personnel" : "store");
+      clearCartStorage(cartScope);
       onLinesChange([]);
       setOrderId(order.id);
       setCompletedOrder(order);
@@ -121,6 +123,20 @@ export default function CartSheet({
       return;
     }
     setStep("checkout");
+  };
+
+  const handleClearCart = () => {
+    if (lines.length === 0) return;
+    if (!confirm("Sepetteki tüm ürünler silinecek. Baştan başlamak istiyor musunuz?")) {
+      return;
+    }
+    clearCartStorage(cartScope);
+    onLinesChange([]);
+    setFullName("");
+    setPhone("");
+    setError(null);
+    setStep("cart");
+    onClose();
   };
 
   const handleDownloadCartPDF = async () => {
@@ -311,6 +327,14 @@ export default function CartSheet({
                   <span>Toplam</span>
                   <strong>{formatOrderMoney(total)}</strong>
                 </div>
+                <button
+                  type="button"
+                  className="store-cart-clear-btn"
+                  disabled={loading || exportBusy}
+                  onClick={handleClearCart}
+                >
+                  Sepeti temizle
+                </button>
                 {isPersonnel && (
                   <p className="store-cart-personnel-note">
                     Müşteri: <strong>{personnelCustomerName}</strong>
@@ -327,7 +351,7 @@ export default function CartSheet({
                 <button
                   type="button"
                   className="store-cart-pdf-btn"
-                  disabled={pdfLoading || excelLoading}
+                  disabled={exportBusy}
                   onClick={() => void handleDownloadCartPDF()}
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -338,7 +362,7 @@ export default function CartSheet({
                 <button
                   type="button"
                   className="store-cart-excel-btn"
-                  disabled={pdfLoading || excelLoading}
+                  disabled={exportBusy}
                   onClick={() => void handleDownloadCartExcel()}
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -379,8 +403,16 @@ export default function CartSheet({
             />
           </div>
           {error && <p className="store-cart-error">{error}</p>}
-          <button type="submit" className="store-cart-checkout-btn" disabled={loading}>
+          <button type="submit" className="store-cart-checkout-btn" disabled={loading || exportBusy}>
             {loading ? "Gönderiliyor…" : "Siparişi onayla"}
+          </button>
+          <button
+            type="button"
+            className="store-cart-clear-btn"
+            disabled={loading || exportBusy}
+            onClick={handleClearCart}
+          >
+            Sepeti temizle
           </button>
         </form>
       )}
