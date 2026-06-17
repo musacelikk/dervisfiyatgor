@@ -1,4 +1,5 @@
-export type OrderStatus = "pending" | "completed" | "cancelled";
+export const ORDER_STATUSES = ["pending", "preparing", "completed", "cancelled"] as const;
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export type OrderItemRow = {
   id: number;
@@ -96,6 +97,7 @@ export function buildOrder(
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "Bekliyor",
+  preparing: "Hazırlanıyor",
   completed: "Tamamlandı",
   cancelled: "İptal",
 };

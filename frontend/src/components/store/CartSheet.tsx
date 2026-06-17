@@ -12,7 +12,9 @@ import {
 } from "@/lib/cart";
 import { formatOrderMoney, submitOrder } from "@/lib/orders-api";
 import { formatStorePrice, productSalePrice } from "@/lib/store-format";
-import { downloadOrderPDF } from "@/lib/pdf-order";
+import { beginMobileDownloadPreview } from "@/lib/download-blob";
+import { downloadOrderExcel } from "@/lib/excel-order";
+import { beginMobilePdfPreview, downloadOrderPDF } from "@/lib/pdf-order";
 import type { Order } from "@/types/order";
 
 type CartSheetProps = {
@@ -28,6 +30,7 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [excelLoading, setExcelLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<number | null>(null);
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
@@ -89,14 +92,22 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
 
   const handleDownloadCartPDF = async () => {
     if (lines.length === 0) return;
+    const previewWindow = beginMobilePdfPreview();
     setPdfLoading(true);
+    setError(null);
     try {
-      await downloadOrderPDF({
-        lines,
-        customerName: fullName.trim() || "—",
-        phone: phone.trim() || undefined,
-        orderCode: "—",
-      });
+      await downloadOrderPDF(
+        {
+          lines,
+          customerName: fullName.trim() || "—",
+          phone: phone.trim() || undefined,
+          orderCode: "—",
+        },
+        { previewWindow }
+      );
+    } catch (err) {
+      previewWindow?.close();
+      setError(err instanceof Error ? err.message : "PDF oluşturulamadı.");
     } finally {
       setPdfLoading(false);
     }
@@ -104,11 +115,54 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
 
   const handleDownloadOrderPDF = async () => {
     if (!completedOrder) return;
+    const previewWindow = beginMobilePdfPreview();
     setPdfLoading(true);
+    setError(null);
     try {
-      await downloadOrderPDF({ order: completedOrder });
+      await downloadOrderPDF({ order: completedOrder }, { previewWindow });
+    } catch (err) {
+      previewWindow?.close();
+      setError(err instanceof Error ? err.message : "PDF oluşturulamadı.");
     } finally {
       setPdfLoading(false);
+    }
+  };
+
+  const handleDownloadCartExcel = async () => {
+    if (lines.length === 0) return;
+    const previewWindow = beginMobileDownloadPreview("Excel");
+    setExcelLoading(true);
+    setError(null);
+    try {
+      await downloadOrderExcel(
+        {
+          lines,
+          customerName: fullName.trim() || "—",
+          phone: phone.trim() || undefined,
+          orderCode: "—",
+        },
+        { previewWindow }
+      );
+    } catch (err) {
+      previewWindow?.close();
+      setError(err instanceof Error ? err.message : "Excel oluşturulamadı.");
+    } finally {
+      setExcelLoading(false);
+    }
+  };
+
+  const handleDownloadOrderExcel = async () => {
+    if (!completedOrder) return;
+    const previewWindow = beginMobileDownloadPreview("Excel");
+    setExcelLoading(true);
+    setError(null);
+    try {
+      await downloadOrderExcel({ order: completedOrder }, { previewWindow });
+    } catch (err) {
+      previewWindow?.close();
+      setError(err instanceof Error ? err.message : "Excel oluşturulamadı.");
+    } finally {
+      setExcelLoading(false);
     }
   };
 
@@ -234,7 +288,7 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
                 <button
                   type="button"
                   className="store-cart-pdf-btn"
-                  disabled={pdfLoading}
+                  disabled={pdfLoading || excelLoading}
                   onClick={() => void handleDownloadCartPDF()}
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -242,6 +296,18 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
                   </svg>
                   {pdfLoading ? "Hazırlanıyor…" : "PDF İndir"}
                 </button>
+                <button
+                  type="button"
+                  className="store-cart-excel-btn"
+                  disabled={pdfLoading || excelLoading}
+                  onClick={() => void handleDownloadCartExcel()}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18M10 3v18M3 6.5A1.5 1.5 0 014.5 5h15A1.5 1.5 0 0121 6.5v11a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5v-11z" />
+                  </svg>
+                  {excelLoading ? "Hazırlanıyor…" : "Excel İndir"}
+                </button>
+                {error && <p className="store-cart-error">{error}</p>}
               </div>
             </>
           )}
@@ -290,22 +356,36 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
           <p>Siparişiniz mağazaya iletildi. En kısa sürede değerlendirilecektir.</p>
           <div className="store-cart-success-actions">
             {completedOrder && (
-              <button
-                type="button"
-                className="store-cart-pdf-btn"
-                disabled={pdfLoading}
-                onClick={() => void handleDownloadOrderPDF()}
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                {pdfLoading ? "Hazırlanıyor…" : "PDF İndir"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="store-cart-pdf-btn"
+                  disabled={pdfLoading || excelLoading}
+                  onClick={() => void handleDownloadOrderPDF()}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {pdfLoading ? "Hazırlanıyor…" : "PDF İndir"}
+                </button>
+                <button
+                  type="button"
+                  className="store-cart-excel-btn"
+                  disabled={pdfLoading || excelLoading}
+                  onClick={() => void handleDownloadOrderExcel()}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18M10 3v18M3 6.5A1.5 1.5 0 014.5 5h15A1.5 1.5 0 0121 6.5v11a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5v-11z" />
+                  </svg>
+                  {excelLoading ? "Hazırlanıyor…" : "Excel İndir"}
+                </button>
+              </>
             )}
             <button type="button" className="store-cart-checkout-btn" onClick={handleClose}>
               Tamam
             </button>
           </div>
+          {error && <p className="store-cart-error mt-3">{error}</p>}
         </div>
       )}
     </BottomSheet>

@@ -160,7 +160,7 @@ export async function getOrderById(id: number): Promise<Order | undefined> {
 }
 
 export async function updateOrderStatus(id: number, status: OrderStatus): Promise<Order> {
-  if (!["pending", "completed", "cancelled"].includes(status)) {
+  if (!["pending", "preparing", "completed", "cancelled"].includes(status)) {
     throw new Error("Geçersiz sipariş durumu.");
   }
   const result = await getPool().query(

@@ -12,7 +12,9 @@ import {
   updateManagerOrderStatus,
   updateOrderStatus,
 } from "@/lib/orders-api";
-import { downloadOrderPDF } from "@/lib/pdf-order";
+import { beginMobileDownloadPreview } from "@/lib/download-blob";
+import { downloadOrderExcel } from "@/lib/excel-order";
+import { beginMobilePdfPreview, downloadOrderPDF } from "@/lib/pdf-order";
 import {
   ORDER_STATUS_CLASSES,
   ORDER_STATUS_LABELS,
@@ -29,6 +31,7 @@ type StatusFilter = "all" | OrderStatus;
 const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "Tümü" },
   { id: "pending", label: "Bekleyen" },
+  { id: "preparing", label: "Hazırlanıyor" },
   { id: "completed", label: "Tamamlandı" },
   { id: "cancelled", label: "İptal" },
 ];
@@ -64,6 +67,7 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [excelLoading, setExcelLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const load = useCallback(async () => {
@@ -84,6 +88,7 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
   }, [load]);
 
   const pendingCount = orders.filter((o) => o.status === "pending").length;
+  const preparingCount = orders.filter((o) => o.status === "preparing").length;
   const completedCount = orders.filter((o) => o.status === "completed").length;
 
   const filteredOrders = useMemo(() => {
@@ -142,19 +147,38 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
   };
 
   const handleDownloadPDF = async (order: Order) => {
+    const previewWindow = beginMobilePdfPreview();
     setPdfLoading(true);
+    setError(null);
     try {
-      await downloadOrderPDF({ order });
+      await downloadOrderPDF({ order }, { previewWindow });
+    } catch (err) {
+      previewWindow?.close();
+      setError(err instanceof Error ? err.message : "PDF oluşturulamadı.");
     } finally {
       setPdfLoading(false);
     }
   };
 
-  const handleQuickComplete = async (order: Order) => {
+  const handleDownloadExcel = async (order: Order) => {
+    const previewWindow = beginMobileDownloadPreview("Excel");
+    setExcelLoading(true);
+    setError(null);
+    try {
+      await downloadOrderExcel({ order }, { previewWindow });
+    } catch (err) {
+      previewWindow?.close();
+      setError(err instanceof Error ? err.message : "Excel oluşturulamadı.");
+    } finally {
+      setExcelLoading(false);
+    }
+  };
+
+  const handleQuickStatus = async (order: Order, status: OrderStatus) => {
     setUpdating(true);
     setError(null);
     try {
-      const updated = await updateOrder(order.id, "completed");
+      const updated = await updateOrder(order.id, status);
       setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
       if (selected?.id === order.id) setSelected(updated);
     } catch (err) {
@@ -162,6 +186,10 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
     } finally {
       setUpdating(false);
     }
+  };
+
+  const handleQuickComplete = async (order: Order) => {
+    await handleQuickStatus(order, "completed");
   };
 
   const renderOrderCard = (order: Order) => (
@@ -212,6 +240,32 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
           <time className="admin-order-card-date">{formatOrderCardDate(order.createdAt)}</time>
           <div className="admin-order-card-actions">
             {order.status === "pending" && (
+              <>
+                <button
+                  type="button"
+                  className="admin-order-card-preparing"
+                  disabled={updating}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleQuickStatus(order, "preparing");
+                  }}
+                >
+                  Hazırlanıyor
+                </button>
+                <button
+                  type="button"
+                  className="admin-order-card-complete"
+                  disabled={updating}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleQuickComplete(order);
+                  }}
+                >
+                  Tamamlandı
+                </button>
+              </>
+            )}
+            {order.status === "preparing" && (
               <button
                 type="button"
                 className="admin-order-card-complete"
@@ -306,6 +360,17 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
           </div>
         </div>
         <div className="admin-orders-stat">
+          <div className="admin-orders-stat-icon admin-orders-stat-icon-preparing">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </div>
+          <div>
+            <p className="admin-orders-stat-label">Hazırlanıyor</p>
+            <p className="admin-orders-stat-value">{preparingCount}</p>
+          </div>
+        </div>
+        <div className="admin-orders-stat">
           <div className="admin-orders-stat-icon admin-orders-stat-icon-done">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -379,20 +444,36 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
                       </td>
                       <td className="admin-table-date">{formatOrderDate(order.createdAt)}</td>
                       <td>
-                        <button
-                          type="button"
-                          className="admin-order-pdf-btn"
-                          disabled={pdfLoading}
-                          title="PDF İndir"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleDownloadPDF(order);
-                          }}
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </button>
+                        <div className="admin-order-export-actions admin-order-export-actions--compact">
+                          <button
+                            type="button"
+                            className="admin-order-pdf-btn"
+                            disabled={pdfLoading || excelLoading}
+                            title="PDF İndir"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleDownloadPDF(order);
+                            }}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            className="admin-order-excel-btn"
+                            disabled={pdfLoading || excelLoading}
+                            title="Excel İndir"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleDownloadExcel(order);
+                            }}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18M10 3v18M3 6.5A1.5 1.5 0 014.5 5h15A1.5 1.5 0 0121 6.5v11a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5v-11z" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -469,6 +550,9 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
               {selected.status === "completed" && (
                 <p className="admin-order-done-banner">Bu sipariş tamamlandı.</p>
               )}
+              {selected.status === "preparing" && (
+                <p className="admin-order-preparing-banner">Bu sipariş hazırlanıyor.</p>
+              )}
               {selected.status === "cancelled" && (
                 <p className="admin-order-cancelled-banner">Bu sipariş iptal edildi.</p>
               )}
@@ -476,6 +560,40 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
 
             <div className="admin-modal-footer admin-order-modal-footer">
               {selected.status === "pending" && (
+                <>
+                  <button
+                    type="button"
+                    disabled={updating || deleting}
+                    className="admin-order-preparing-btn"
+                    onClick={() => void handleStatusChange("preparing")}
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {updating ? "Kaydediliyor…" : "Hazırlanıyor"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={updating || deleting}
+                    className="admin-order-complete-btn"
+                    onClick={() => void handleStatusChange("completed")}
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    {updating ? "Kaydediliyor…" : "Tamamlandı"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={updating || deleting}
+                    className="admin-order-cancel-btn"
+                    onClick={() => void handleStatusChange("cancelled")}
+                  >
+                    İptal et
+                  </button>
+                </>
+              )}
+              {selected.status === "preparing" && (
                 <>
                   <button
                     type="button"
@@ -498,17 +616,30 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
                   </button>
                 </>
               )}
-              <button
-                type="button"
-                className="admin-order-pdf-btn admin-order-pdf-btn-modal"
-                disabled={pdfLoading || deleting}
-                onClick={() => void handleDownloadPDF(selected)}
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                {pdfLoading ? "Hazırlanıyor…" : "PDF İndir"}
-              </button>
+              <div className="admin-order-export-actions">
+                <button
+                  type="button"
+                  className="admin-order-pdf-btn"
+                  disabled={pdfLoading || excelLoading || deleting}
+                  onClick={() => void handleDownloadPDF(selected)}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {pdfLoading ? "Hazırlanıyor…" : "PDF İndir"}
+                </button>
+                <button
+                  type="button"
+                  className="admin-order-excel-btn"
+                  disabled={pdfLoading || excelLoading || deleting}
+                  onClick={() => void handleDownloadExcel(selected)}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18M10 3v18M3 6.5A1.5 1.5 0 014.5 5h15A1.5 1.5 0 0121 6.5v11a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5v-11z" />
+                  </svg>
+                  {excelLoading ? "Hazırlanıyor…" : "Excel İndir"}
+                </button>
+              </div>
               <button
                 type="button"
                 className="admin-order-delete-btn"

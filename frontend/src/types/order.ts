@@ -1,4 +1,4 @@
-export type OrderStatus = "pending" | "completed" | "cancelled";
+export type OrderStatus = "pending" | "preparing" | "completed" | "cancelled";
 
 export type OrderItem = {
   id: number;
@@ -34,12 +34,14 @@ export type CreateOrderInput = {
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "Bekliyor",
+  preparing: "Hazırlanıyor",
   completed: "Tamamlandı",
   cancelled: "İptal",
 };
 
 export const ORDER_STATUS_CLASSES: Record<OrderStatus, string> = {
   pending: "admin-order-status-pending",
+  preparing: "admin-order-status-preparing",
   completed: "admin-order-status-completed",
   cancelled: "admin-order-status-cancelled",
 };

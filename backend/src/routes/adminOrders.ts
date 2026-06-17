@@ -45,8 +45,13 @@ router.patch("/:id", async (req, res) => {
     return;
   }
   const status = req.body?.status;
-  if (typeof status !== "string" || !["pending", "completed", "cancelled"].includes(status)) {
-    res.status(400).json({ error: "status: pending, completed veya cancelled olmalı." });
+  if (
+    typeof status !== "string" ||
+    !["pending", "preparing", "completed", "cancelled"].includes(status)
+  ) {
+    res.status(400).json({
+      error: "status: pending, preparing, completed veya cancelled olmalı.",
+    });
     return;
   }
   try {

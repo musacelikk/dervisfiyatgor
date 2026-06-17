@@ -1,26 +1,23 @@
 "use client";
 
-import type { CartLine } from "@/lib/cart";
-import type { Order } from "@/types/order";
-import { productSalePrice } from "@/lib/store-format";
+import { beginMobileDownloadPreview, saveBlobFile, type DownloadFileOptions } from "@/lib/download-blob";
+import {
+  buildOrderExportData,
+  orderExportFileBaseName,
+  type OrderExportInput,
+} from "@/lib/order-export";
 
 const FONT_REGULAR = "Roboto-Regular.ttf";
 const FONT_BOLD = "Roboto-Bold.ttf";
 const FONT_FAMILY = "Roboto";
 
-function formatDateTR(iso?: string): string {
-  try {
-    const d = iso ? new Date(iso) : new Date();
-    return new Intl.DateTimeFormat("tr-TR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(d);
-  } catch {
-    return iso ?? new Date().toLocaleDateString("tr-TR");
-  }
+let cachedFontData: { regular: string; bold: string } | null = null;
+
+export type DownloadOrderPdfOptions = DownloadFileOptions;
+
+/** @deprecated beginMobileDownloadPreview kullanın */
+export function beginMobilePdfPreview(): Window | null {
+  return beginMobileDownloadPreview("PDF");
 }
 
 function formatPrice(value: number | null | undefined): string {
@@ -33,22 +30,9 @@ function formatPrice(value: number | null | undefined): string {
   );
 }
 
-type PDFOrderDataFromCart = {
-  lines: CartLine[];
-  customerName: string;
-  phone?: string;
-  orderCode?: string;
-};
+type PDFOrderData = OrderExportInput;
 
-type PDFOrderDataFromOrder = {
-  order: Order;
-};
-
-type PDFOrderData = PDFOrderDataFromCart | PDFOrderDataFromOrder;
-
-function isFromOrder(data: PDFOrderData): data is PDFOrderDataFromOrder {
-  return "order" in data;
-}
+export type { OrderExportInputFromCart as PDFOrderDataFromCart, OrderExportInputFromOrder as PDFOrderDataFromOrder } from "@/lib/order-export";
 
 type TextDoc = {
   getTextWidth: (text: string) => number;
@@ -69,21 +53,24 @@ async function registerRobotoFont(doc: {
   addFileToVFS: (fileName: string, data: string) => void;
   addFont: (postScriptName: string, fontName: string, style: string) => void;
 }): Promise<void> {
-  const [regularRes, boldRes] = await Promise.all([
-    fetch("/fonts/Roboto-Regular.ttf"),
-    fetch("/fonts/Roboto-Bold.ttf"),
-  ]);
-  if (!regularRes.ok || !boldRes.ok) {
-    throw new Error("PDF fontları yüklenemedi.");
+  if (!cachedFontData) {
+    const [regularRes, boldRes] = await Promise.all([
+      fetch("/fonts/Roboto-Regular.ttf"),
+      fetch("/fonts/Roboto-Bold.ttf"),
+    ]);
+    if (!regularRes.ok || !boldRes.ok) {
+      throw new Error("PDF fontları yüklenemedi.");
+    }
+
+    const [regularB64, boldB64] = await Promise.all([
+      regularRes.arrayBuffer().then(arrayBufferToBase64),
+      boldRes.arrayBuffer().then(arrayBufferToBase64),
+    ]);
+    cachedFontData = { regular: regularB64, bold: boldB64 };
   }
 
-  const [regularB64, boldB64] = await Promise.all([
-    regularRes.arrayBuffer().then(arrayBufferToBase64),
-    boldRes.arrayBuffer().then(arrayBufferToBase64),
-  ]);
-
-  doc.addFileToVFS(FONT_REGULAR, regularB64);
-  doc.addFileToVFS(FONT_BOLD, boldB64);
+  doc.addFileToVFS(FONT_REGULAR, cachedFontData.regular);
+  doc.addFileToVFS(FONT_BOLD, cachedFontData.bold);
   doc.addFont(FONT_REGULAR, FONT_FAMILY, "normal");
   doc.addFont(FONT_BOLD, FONT_FAMILY, "bold");
 }
@@ -98,7 +85,10 @@ function buildColumnLayout(marginL: number, colWidths: number[], colGap: number)
   return colX;
 }
 
-export async function downloadOrderPDF(data: PDFOrderData): Promise<void> {
+export async function downloadOrderPDF(
+  data: PDFOrderData,
+  options?: DownloadOrderPdfOptions
+): Promise<void> {
   const { jsPDF } = await import("jspdf");
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -114,53 +104,14 @@ export async function downloadOrderPDF(data: PDFOrderData): Promise<void> {
   const colX = buildColumnLayout(marginL, colWidths, colGap);
   const rowH = 7.5;
 
-  let customerName = "";
-  let phone = "";
-  let orderCode = "";
-  let orderDate = formatDateTR();
-  let rows: {
-    no: number;
-    stockCode: string;
-    name: string;
-    unitPrice: number | null;
-    qty: number;
-    total: number | null;
-  }[] = [];
-  let grandTotal: number | null = null;
-
-  if (isFromOrder(data)) {
-    const o = data.order;
-    customerName = `${o.firstName} ${o.lastName}`.trim();
-    phone = o.phone ?? "";
-    orderCode = o.orderCode ?? `#${o.id}`;
-    orderDate = formatDateTR(o.createdAt);
-    rows = o.items.map((item, i) => ({
-      no: i + 1,
-      stockCode: item.stockCode,
-      name: item.productName,
-      unitPrice: item.salePrice,
-      qty: item.quantity,
-      total: item.lineTotal,
-    }));
-    grandTotal = o.totalAmount;
-  } else {
-    customerName = data.customerName;
-    phone = data.phone ?? "";
-    orderCode = data.orderCode ?? "—";
-    rows = data.lines.map((line, i) => {
-      const unitPrice = productSalePrice(line.product) ?? null;
-      const total = unitPrice != null ? unitPrice * line.quantity : null;
-      return {
-        no: i + 1,
-        stockCode: line.product.stockCode,
-        name: line.product.name,
-        unitPrice,
-        qty: line.quantity,
-        total,
-      };
-    });
-    grandTotal = rows.reduce((sum, r) => sum + (r.total ?? 0), 0);
-  }
+  const {
+    customerName,
+    phone,
+    orderCode,
+    orderDate,
+    rows,
+    grandTotal,
+  } = buildOrderExportData(data);
 
   let y = marginL;
 
@@ -286,8 +237,8 @@ export async function downloadOrderPDF(data: PDFOrderData): Promise<void> {
   doc.setTextColor(180, 20, 20);
   doc.text(formatPrice(grandTotal), pageW - marginR, y + 1, { align: "right" });
 
-  const fileName = `siparis-${orderCode !== "—" ? orderCode : Date.now()}.pdf`;
-  doc.save(fileName);
+  const fileName = `${orderExportFileBaseName(orderCode)}.pdf`;
+  saveBlobFile(doc.output("blob"), fileName, "application/pdf", options?.previewWindow);
 }
 
 function cellTextX(

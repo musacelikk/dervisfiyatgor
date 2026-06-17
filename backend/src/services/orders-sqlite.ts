@@ -151,7 +151,7 @@ export function getOrderById(id: number): Order | undefined {
 
 export function updateOrderStatus(id: number, status: OrderStatus): Order {
   ensureOrdersSchema();
-  if (!["pending", "completed", "cancelled"].includes(status)) {
+  if (!["pending", "preparing", "completed", "cancelled"].includes(status)) {
     throw new Error("Geçersiz sipariş durumu.");
   }
   const database = db();
