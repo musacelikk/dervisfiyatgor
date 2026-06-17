@@ -52,6 +52,7 @@ function validateCreateInput(input: CreateOrderInput): void {
 function mapOrderRow(row: Record<string, unknown>): OrderRow {
   return {
     id: Number(row.id),
+    order_code: row.order_code != null ? String(row.order_code) : "",
     first_name: String(row.first_name),
     last_name: String(row.last_name),
     phone: row.phone == null ? null : String(row.phone),
