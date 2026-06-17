@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatOrderMoney } from "@/lib/orders-api";
 
 type StoreFloatingCartProps = {
@@ -17,9 +19,15 @@ export default function StoreFloatingCart({
   hidden = false,
   className,
 }: StoreFloatingCartProps) {
-  if (itemCount <= 0 || hidden) return null;
+  const [portalReady, setPortalReady] = useState(false);
 
-  return (
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  if (itemCount <= 0 || hidden || !portalReady) return null;
+
+  return createPortal(
     <div className={`store-floating-cart-wrap${className ? ` ${className}` : ""}`}>
       <button type="button" className="store-floating-cart" onClick={onOpen}>
         <span className="store-floating-cart-icon" aria-hidden>
@@ -38,6 +46,7 @@ export default function StoreFloatingCart({
         </span>
         <span className="store-floating-cart-cta">Sepeti gör</span>
       </button>
-    </div>
+    </div>,
+    document.body
   );
 }

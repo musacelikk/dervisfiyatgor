@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type StoreToastProps = {
   message: string | null;
@@ -15,20 +16,27 @@ export default function StoreToast({
   aboveFloatingCart = false,
   className,
 }: StoreToastProps) {
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
   useEffect(() => {
     if (!message) return;
     const t = window.setTimeout(onClear, 2200);
     return () => window.clearTimeout(t);
   }, [message, onClear]);
 
-  if (!message) return null;
+  if (!message || !portalReady) return null;
 
-  return (
+  return createPortal(
     <div
       className={`store-toast${aboveFloatingCart ? "" : " store-toast-low"}${className ? ` ${className}` : ""}`}
       role="status"
     >
       {message}
-    </div>
+    </div>,
+    document.body
   );
 }

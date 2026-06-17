@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface BottomSheetProps {
   open: boolean;
@@ -19,6 +20,12 @@ export default function BottomSheet({
   subtitle,
   children,
 }: BottomSheetProps) {
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -28,10 +35,10 @@ export default function BottomSheet({
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!open || !portalReady) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex flex-col justify-end">
       <button
         type="button"
         aria-label="Kapat"
@@ -96,6 +103,7 @@ export default function BottomSheet({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1327,6 +1327,7 @@ textarea {
   flex-direction: column;
   overflow: hidden;
   background: var(--surface);
+  --employee-bottomnav-height: calc(3.75rem + env(safe-area-inset-bottom));
 }
 
 .employee-header {
@@ -1537,24 +1538,37 @@ textarea {
 }
 
 .employee-main-scan-with-cart {
-  padding-bottom: max(6.5rem, calc(env(safe-area-inset-bottom) + 5.5rem));
+  padding-bottom: max(7rem, calc(var(--employee-bottomnav-height) + 4.5rem));
 }
 
 .store-floating-cart-wrap--employee {
-  z-index: 35;
+  z-index: 90;
+  bottom: var(--employee-bottomnav-height);
 }
 
-@media (max-width: 767px) {
+.store-toast--employee.store-toast {
+  bottom: max(9.25rem, calc(var(--employee-bottomnav-height) + 5.25rem));
+}
+
+.store-toast--employee.store-toast-low {
+  bottom: max(5rem, calc(var(--employee-bottomnav-height) + 1.25rem));
+}
+
+@media (min-width: 768px) {
   .store-floating-cart-wrap--employee {
-    bottom: calc(3.35rem + env(safe-area-inset-bottom));
+    bottom: max(0.625rem, env(safe-area-inset-bottom));
   }
 
   .store-toast--employee.store-toast {
-    bottom: max(8.75rem, calc(env(safe-area-inset-bottom) + 7.5rem));
+    bottom: max(5.5rem, calc(env(safe-area-inset-bottom) + 4.5rem));
   }
 
   .store-toast--employee.store-toast-low {
-    bottom: max(4.5rem, calc(env(safe-area-inset-bottom) + 3.5rem));
+    bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+  }
+
+  .employee-main-scan-with-cart {
+    padding-bottom: max(6.5rem, calc(env(safe-area-inset-bottom) + 5.5rem));
   }
 }
 
@@ -1574,7 +1588,7 @@ textarea {
 .employee-bottomnav {
   position: sticky;
   bottom: 0;
-  z-index: 30;
+  z-index: 40;
   display: flex;
   flex-shrink: 0;
   gap: 0.125rem;
@@ -3523,6 +3537,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  padding-bottom: 0.5rem;
 }
 
 .store-cart-total-row {
@@ -3929,7 +3944,7 @@ textarea {
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 30;
+  z-index: 80;
   padding: 0.5rem 0.875rem max(0.625rem, env(safe-area-inset-bottom));
   pointer-events: none;
 }
