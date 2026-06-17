@@ -14,7 +14,7 @@
   --foreground: #18181b;
   --scanner-green: #16a34a;
   --scanner-green-glow: rgba(22, 163, 74, 0.4);
-  --employee-bottomnav-height: calc(4.25rem + env(safe-area-inset-bottom));
+  --employee-bottomnav-height: calc(3.5rem + env(safe-area-inset-bottom));
 }
 
 @theme inline {
@@ -1538,21 +1538,7 @@ textarea {
 }
 
 .employee-main-scan-with-cart {
-  padding-bottom: max(7.5rem, calc(var(--employee-bottomnav-height) + 5rem));
-}
-
-@media (max-width: 767px) {
-  .employee-layout {
-    padding-bottom: var(--employee-bottomnav-height);
-  }
-
-  .employee-bottomnav {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 40;
-  }
+  padding-bottom: max(6.5rem, calc(var(--employee-bottomnav-height) + 3.75rem));
 }
 
 .store-cart-personnel-note {
@@ -1571,12 +1557,12 @@ textarea {
 .employee-bottomnav {
   position: sticky;
   bottom: 0;
-  z-index: 40;
+  z-index: 50;
   display: flex;
   flex-shrink: 0;
   gap: 0.125rem;
   border-top: 1px solid #e4e4e7;
-  background: rgb(255 255 255 / 0.96);
+  background: rgb(255 255 255 / 0.98);
   backdrop-filter: blur(10px);
   padding: 0.25rem 0.375rem;
   padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
@@ -3938,8 +3924,8 @@ textarea {
 
 .store-floating-cart-wrap.store-floating-cart-wrap--employee {
   bottom: var(--employee-bottomnav-height);
-  z-index: 90;
-  padding-bottom: 0.5rem;
+  z-index: 45;
+  padding: 0.5rem 0.875rem 0.375rem;
 }
 
 @media (min-width: 768px) {
