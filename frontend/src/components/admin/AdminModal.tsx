@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId } from "react";
+import { useEffect, useId, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface AdminModalProps {
   open: boolean;
@@ -20,6 +21,11 @@ export default function AdminModal({
   children,
 }: AdminModalProps) {
   const titleId = useId();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -39,15 +45,15 @@ export default function AdminModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="admin-modal-backdrop" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`admin-modal ${size === "lg" ? "admin-modal-lg" : ""}`}
+        className={`admin-modal${size === "lg" ? " admin-modal-lg" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="admin-modal-accent" aria-hidden />
@@ -77,6 +83,7 @@ export default function AdminModal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

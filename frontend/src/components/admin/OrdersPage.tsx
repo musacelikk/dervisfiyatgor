@@ -560,17 +560,17 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
 
             <div className="admin-modal-footer admin-order-modal-footer">
               {selected.status === "pending" && (
-                <>
+                <div className="admin-order-status-actions">
                   <button
                     type="button"
                     disabled={updating || deleting}
                     className="admin-order-preparing-btn"
                     onClick={() => void handleStatusChange("preparing")}
                   >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    {updating ? "Kaydediliyor…" : "Hazırlanıyor"}
+                    {updating ? "…" : "Hazırlanıyor"}
                   </button>
                   <button
                     type="button"
@@ -578,33 +578,25 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
                     className="admin-order-complete-btn"
                     onClick={() => void handleStatusChange("completed")}
                   >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
-                    {updating ? "Kaydediliyor…" : "Tamamlandı"}
+                    {updating ? "…" : "Tamamlandı"}
                   </button>
-                  <button
-                    type="button"
-                    disabled={updating || deleting}
-                    className="admin-order-cancel-btn"
-                    onClick={() => void handleStatusChange("cancelled")}
-                  >
-                    İptal et
-                  </button>
-                </>
+                </div>
               )}
               {selected.status === "preparing" && (
-                <>
+                <div className="admin-order-status-actions">
                   <button
                     type="button"
                     disabled={updating || deleting}
                     className="admin-order-complete-btn"
                     onClick={() => void handleStatusChange("completed")}
                   >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
-                    {updating ? "Kaydediliyor…" : "Tamamlandı"}
+                    {updating ? "…" : "Tamamlandı"}
                   </button>
                   <button
                     type="button"
@@ -614,7 +606,18 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
                   >
                     İptal et
                   </button>
-                </>
+                </div>
+              )}
+              {selected.status === "pending" && (
+                <button
+                  type="button"
+                  disabled={updating || deleting}
+                  className="admin-order-cancel-btn"
+                  style={{ alignSelf: "flex-start" }}
+                  onClick={() => void handleStatusChange("cancelled")}
+                >
+                  İptal et
+                </button>
               )}
               <div className="admin-order-export-actions">
                 <button
