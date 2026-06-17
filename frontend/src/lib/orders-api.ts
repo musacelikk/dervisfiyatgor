@@ -60,6 +60,22 @@ export async function updateManagerOrderStatus(
   return body.order as Order;
 }
 
+export async function deleteOrder(id: number): Promise<void> {
+  const res = await fetch(`/api/admin/orders/${id}`, { method: "DELETE" });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof body.error === "string" ? body.error : "Silinemedi.");
+  }
+}
+
+export async function deleteManagerOrder(id: number): Promise<void> {
+  const res = await fetch(`/api/yonetici/orders/${id}`, { method: "DELETE" });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof body.error === "string" ? body.error : "Silinemedi.");
+  }
+}
+
 export function formatOrderMoney(value: number | null | undefined): string {
   if (value == null) return "—";
   return new Intl.NumberFormat("tr-TR", {

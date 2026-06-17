@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAdminOrEmployee } from "../middleware/adminAuth";
 import { getAuditContext } from "../lib/auditContext";
 import { logAuditFromContext } from "../services/audit";
-import { getOrderById, listOrders, updateOrderStatus } from "../services/orders";
+import { deleteOrder, getOrderById, listOrders, updateOrderStatus } from "../services/orders";
 import type { OrderStatus } from "../types/order";
 
 const router = Router();
@@ -61,6 +61,37 @@ router.patch("/:id", async (req, res) => {
     res.json({ order });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Güncellenemedi.";
+    const code = message.includes("bulunamadı") ? 404 : 400;
+    res.status(code).json({ error: message });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Geçersiz sipariş id." });
+    return;
+  }
+  try {
+    const existing = await getOrderById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Sipariş bulunamadı." });
+      return;
+    }
+    await deleteOrder(id);
+    logAuditFromContext(getAuditContext(req), {
+      action: "order.delete",
+      resourceType: "order",
+      resourceId: String(id),
+      message: `Sipariş silindi: ${existing.orderCode || `#${id}`}`,
+      metadata: {
+        orderCode: existing.orderCode,
+        customer: `${existing.firstName} ${existing.lastName}`.trim(),
+      },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Silinemedi.";
     const code = message.includes("bulunamadı") ? 404 : 400;
     res.status(code).json({ error: message });
   }

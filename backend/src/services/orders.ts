@@ -23,6 +23,11 @@ export async function updateOrderStatus(id: number, status: OrderStatus): Promis
   return sqlite.updateOrderStatus(id, status);
 }
 
+export async function deleteOrder(id: number): Promise<void> {
+  if (isPostgres()) return pg.deleteOrder(id);
+  return sqlite.deleteOrder(id);
+}
+
 export async function getOrderCount(): Promise<number> {
   if (isPostgres()) return pg.getOrderCount();
   return sqlite.getOrderCount();

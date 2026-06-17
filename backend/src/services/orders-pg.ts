@@ -173,6 +173,11 @@ export async function updateOrderStatus(id: number, status: OrderStatus): Promis
   return order;
 }
 
+export async function deleteOrder(id: number): Promise<void> {
+  const result = await getPool().query(`DELETE FROM orders WHERE id = $1`, [id]);
+  if (result.rowCount === 0) throw new Error("Sipariş bulunamadı.");
+}
+
 export async function getOrderCount(): Promise<number> {
   const { rows } = await getPool().query(`SELECT COUNT(*)::int AS count FROM orders`);
   return rows[0].count as number;

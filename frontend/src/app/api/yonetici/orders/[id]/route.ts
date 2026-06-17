@@ -27,3 +27,25 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const auth = await requireEmployeePermission("orders.view");
+  if (auth instanceof NextResponse) return auth;
+
+  const { id } = await context.params;
+  try {
+    await adminBackendFetch(`/api/admin/orders/${id}`, {
+      method: "DELETE",
+      auth: "employee",
+    });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Silinemedi." },
+      { status: 400 }
+    );
+  }
+}

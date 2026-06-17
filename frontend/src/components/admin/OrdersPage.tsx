@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminModal from "./AdminModal";
 import {
+  deleteManagerOrder,
+  deleteOrder,
   fetchManagerOrders,
   fetchOrders,
   formatOrderDate,
@@ -60,6 +62,7 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Order | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
@@ -92,6 +95,35 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
     return mode === "manager"
       ? updateManagerOrderStatus(orderId, status)
       : updateOrderStatus(orderId, status);
+  };
+
+  const removeOrder = async (orderId: number) => {
+    return mode === "manager" ? deleteManagerOrder(orderId) : deleteOrder(orderId);
+  };
+
+  const handleDelete = async () => {
+    if (!selected) return;
+    const label = selected.orderCode || `#${selected.id}`;
+    const customer = customerName(selected);
+    if (
+      !confirm(
+        `${label} numaralı siparişi${customer ? ` (${customer})` : ""} kalıcı olarak silmek istediğinize emin misiniz?`
+      )
+    ) {
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+    try {
+      await removeOrder(selected.id);
+      setOrders((prev) => prev.filter((o) => o.id !== selected.id));
+      setSelected(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sipariş silinemedi.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleStatusChange = async (status: OrderStatus) => {
@@ -447,7 +479,7 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
                 <>
                   <button
                     type="button"
-                    disabled={updating}
+                    disabled={updating || deleting}
                     className="admin-order-complete-btn"
                     onClick={() => void handleStatusChange("completed")}
                   >
@@ -458,7 +490,7 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
                   </button>
                   <button
                     type="button"
-                    disabled={updating}
+                    disabled={updating || deleting}
                     className="admin-order-cancel-btn"
                     onClick={() => void handleStatusChange("cancelled")}
                   >
@@ -469,13 +501,24 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
               <button
                 type="button"
                 className="admin-order-pdf-btn admin-order-pdf-btn-modal"
-                disabled={pdfLoading}
+                disabled={pdfLoading || deleting}
                 onClick={() => void handleDownloadPDF(selected)}
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 {pdfLoading ? "Hazırlanıyor…" : "PDF İndir"}
+              </button>
+              <button
+                type="button"
+                className="admin-order-delete-btn"
+                disabled={updating || deleting}
+                onClick={() => void handleDelete()}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                {deleting ? "Siliniyor…" : "Siparişi sil"}
               </button>
             </div>
           </>

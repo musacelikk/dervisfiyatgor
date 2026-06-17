@@ -164,6 +164,12 @@ export function updateOrderStatus(id: number, status: OrderStatus): Order {
   return order;
 }
 
+export function deleteOrder(id: number): void {
+  ensureOrdersSchema();
+  const result = db().prepare(`DELETE FROM orders WHERE id = ?`).run(id);
+  if (result.changes === 0) throw new Error("Sipariş bulunamadı.");
+}
+
 export function getOrderCount(): number {
   ensureOrdersSchema();
   const row = db().prepare(`SELECT COUNT(*) as count FROM orders`).get() as { count: number };

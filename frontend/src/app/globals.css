@@ -2533,6 +2533,7 @@ textarea {
 
 .admin-order-modal-footer {
   flex-direction: column;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
@@ -2614,6 +2615,38 @@ textarea {
 
 .admin-order-pdf-btn-modal {
   margin-left: auto;
+}
+
+.admin-order-delete-btn {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.5rem;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #b91c1c;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.admin-order-delete-btn:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.admin-order-delete-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-order-modal-footer .admin-order-delete-btn {
+  flex: 1 1 100%;
 }
 
 /* ——— Sepet yönetimi sayfası ——— */

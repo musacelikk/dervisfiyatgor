@@ -51,3 +51,22 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  if (!(await requireAdminSession())) {
+    return NextResponse.json({ error: "Oturum gerekli." }, { status: 401 });
+  }
+  const { id } = await context.params;
+  try {
+    await adminBackendFetch(`/api/admin/orders/${id}`, { method: "DELETE" });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Silinemedi." },
+      { status: 400 }
+    );
+  }
+}
