@@ -239,7 +239,7 @@ textarea {
   gap: 0.625rem;
   overflow-x: hidden;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 0.5rem 0.875rem max(0.75rem, env(safe-area-inset-bottom));
 }
 
@@ -754,6 +754,7 @@ textarea {
   min-height: 0;
   flex: 1;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .admin-topbar {
@@ -830,9 +831,10 @@ textarea {
 
 .admin-main {
   flex: 1;
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   background: #eef0f4;
 }
 
@@ -1278,7 +1280,7 @@ textarea {
   flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   background: linear-gradient(180deg, #fafafa 0%, #eef0f4 100%);
 }
 
@@ -1490,7 +1492,7 @@ textarea {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .employee-page.admin-page {
@@ -1594,6 +1596,54 @@ textarea {
   margin-top: 0;
 }
 
+/* ——— Sticky search toolbar ——— */
+.admin-toolbar-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin-top: 0;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.08);
+  transition: box-shadow 0.2s;
+}
+
+/* ——— Scroll to top button ——— */
+.products-scroll-top-btn {
+  position: fixed;
+  right: 1.25rem;
+  bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  z-index: 20;
+  display: flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: none;
+  background: #18181b;
+  color: #fff;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s, opacity 0.2s;
+  animation: scroll-top-in 0.2s ease-out;
+}
+
+.products-scroll-top-btn:hover {
+  background: var(--accent);
+  transform: translateY(-2px);
+}
+
+@media (min-width: 1024px) {
+  .products-scroll-top-btn {
+    right: 2rem;
+    bottom: 2rem;
+  }
+}
+
+@keyframes scroll-top-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .employee-page .admin-import-layout {
   grid-template-columns: 1fr;
 }
@@ -1659,7 +1709,10 @@ textarea {
 
 .admin-modal-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   padding: 1.25rem 1.5rem 0.5rem;
 }
 
@@ -2531,6 +2584,38 @@ textarea {
   opacity: 0.5;
 }
 
+.admin-order-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e4e4e7;
+  background: #fafafa;
+  padding: 0.4375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #52525b;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.admin-order-pdf-btn:hover:not(:disabled) {
+  background: #f4f4f5;
+  border-color: #d4d4d8;
+  color: #18181b;
+}
+
+.admin-order-pdf-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-order-pdf-btn-modal {
+  margin-left: auto;
+}
+
 /* ——— Sepet yönetimi sayfası ——— */
 .admin-orders-page {
   display: flex;
@@ -3300,10 +3385,61 @@ textarea {
   color: #b91c1c;
 }
 
+.store-cart-pdf-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.625rem;
+  border: 1.5px solid #e4e4e7;
+  background: #fafafa;
+  padding: 0.6875rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #52525b;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.store-cart-pdf-btn:hover:not(:disabled) {
+  background: #f4f4f5;
+  border-color: #d4d4d8;
+  color: #18181b;
+}
+
+.store-cart-pdf-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .store-cart-success {
   padding: 0.5rem 0 1rem;
   font-size: 0.875rem;
   color: #52525b;
+}
+
+.store-cart-success-code {
+  margin-bottom: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.5rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  font-size: 0.875rem;
+  color: #7f1d1d;
+}
+
+.store-cart-success-code strong {
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.store-cart-success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 1rem;
 }
 
 /* ——— Mağaza ürün kartları ——— */

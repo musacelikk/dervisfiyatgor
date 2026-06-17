@@ -13,6 +13,7 @@ export type OrderItemRow = {
 
 export type OrderRow = {
   id: number;
+  order_code: string;
   first_name: string;
   last_name: string;
   phone: string | null;
@@ -34,6 +35,7 @@ export type OrderItem = {
 
 export type Order = {
   id: number;
+  orderCode: string;
   firstName: string;
   lastName: string;
   phone: string | null;
@@ -79,6 +81,7 @@ export function buildOrder(
   const hasPrice = items.some((item) => item.salePrice != null);
   return {
     id: row.id,
+    orderCode: row.order_code,
     firstName: row.first_name,
     lastName: row.last_name,
     phone: row.phone,

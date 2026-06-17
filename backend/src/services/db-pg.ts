@@ -181,9 +181,10 @@ export async function listAllProducts(): Promise<ProductRow[]> {
 }
 
 export async function getProductByStockCode(stockCode: string): Promise<ProductRow | undefined> {
+  const normCode = normalizeSearchText(stockCode);
   const { rows } = await getPool().query(
-    `SELECT ${selectFields} FROM products WHERE stock_code = $1 LIMIT 1`,
-    [stockCode.trim()]
+    `SELECT ${selectFields} FROM products WHERE stock_code_norm = $1 LIMIT 1`,
+    [normCode]
   );
   return (rows[0] as ProductRow | undefined) ?? undefined;
 }

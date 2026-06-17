@@ -13,6 +13,7 @@ export type OrderItem = {
 
 export type Order = {
   id: number;
+  orderCode: string;
   firstName: string;
   lastName: string;
   phone: string | null;

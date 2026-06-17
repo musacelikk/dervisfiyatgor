@@ -8,11 +8,33 @@ import {
   type OrderStatus,
 } from "../types/order";
 
+const ORDER_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const ORDER_CODE_LENGTH = 6;
+
+function generateOrderCode(): string {
+  let code = "";
+  for (let i = 0; i < ORDER_CODE_LENGTH; i++) {
+    code += ORDER_CODE_CHARS[Math.floor(Math.random() * ORDER_CODE_CHARS.length)];
+  }
+  return code;
+}
+
+function getUniqueOrderCode(): string {
+  const database = db();
+  const check = database.prepare(`SELECT id FROM orders WHERE order_code = ? LIMIT 1`);
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const code = generateOrderCode();
+    if (!check.get(code)) return code;
+  }
+  throw new Error("Benzersiz sipariş kodu oluşturulamadı.");
+}
+
 function ensureOrdersSchema(): void {
   const database = db();
-  db().exec(`
+  database.exec(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_code TEXT UNIQUE,
       first_name TEXT NOT NULL,
       last_name TEXT NOT NULL,
       phone TEXT,
@@ -61,9 +83,10 @@ export function createOrder(input: CreateOrderInput): Order {
   const lastName = input.lastName.trim();
   const phone = input.phone?.trim() || null;
 
+  const orderCode = getUniqueOrderCode();
   const insertOrder = database.prepare(`
-    INSERT INTO orders (first_name, last_name, phone, status, updated_at)
-    VALUES (?, ?, ?, 'pending', datetime('now'))
+    INSERT INTO orders (order_code, first_name, last_name, phone, status, updated_at)
+    VALUES (?, ?, ?, ?, 'pending', datetime('now'))
   `);
   const insertItem = database.prepare(`
     INSERT INTO order_items (
@@ -72,7 +95,7 @@ export function createOrder(input: CreateOrderInput): Order {
   `);
 
   const tx = database.transaction((payload: CreateOrderInput) => {
-    const result = insertOrder.run(firstName, lastName, phone);
+    const result = insertOrder.run(orderCode, firstName, lastName, phone);
     const orderId = Number(result.lastInsertRowid);
 
     for (const item of payload.items) {

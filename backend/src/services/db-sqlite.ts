@@ -14,13 +14,22 @@ function resolveDataDir(): string {
 
 let sqliteDb: Database.Database | null = null;
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 const NAME_SEARCH_LIMIT = 30;
 
 function migrate(database: Database.Database): void {
   const currentVersion = database.pragma("user_version", { simple: true }) as number;
 
   if (currentVersion >= SCHEMA_VERSION) return;
+
+  if (currentVersion === 10) {
+    database.exec(`
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_code TEXT;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_order_code ON orders(order_code);
+    `);
+    database.pragma(`user_version = ${SCHEMA_VERSION}`);
+    return;
+  }
 
   if (currentVersion === 9) {
     database.exec(`
@@ -185,6 +194,7 @@ export function initSqliteDatabase(): void {
     UPDATE products SET barcode = NULL WHERE barcode = '';
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_code TEXT UNIQUE,
       first_name TEXT NOT NULL,
       last_name TEXT NOT NULL,
       phone TEXT,
@@ -378,9 +388,10 @@ export function listAllProducts(): ProductRow[] {
 }
 
 export function getProductByStockCode(stockCode: string): ProductRow | undefined {
+  const normCode = normalizeSearchText(stockCode);
   return getDb()
-    .prepare(`SELECT ${selectFields} FROM products WHERE stock_code = ? LIMIT 1`)
-    .get(stockCode.trim()) as ProductRow | undefined;
+    .prepare(`SELECT ${selectFields} FROM products WHERE stock_code_norm = ? LIMIT 1`)
+    .get(normCode) as ProductRow | undefined;
 }
 
 export function listProductsPaged(options: {

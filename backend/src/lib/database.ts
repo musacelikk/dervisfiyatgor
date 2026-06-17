@@ -75,6 +75,7 @@ async function migratePostgres(): Promise<void> {
 
     CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
+      order_code TEXT UNIQUE,
       first_name TEXT NOT NULL,
       last_name TEXT NOT NULL,
       phone TEXT,
@@ -126,6 +127,8 @@ async function migratePostgres(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_products_name_norm ON products(name_norm);
     CREATE INDEX IF NOT EXISTS idx_products_stock_code_norm ON products(stock_code_norm);
     CREATE INDEX IF NOT EXISTS idx_products_barcode_norm ON products(barcode_norm);
+
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_code TEXT UNIQUE;
 
     CREATE TABLE IF NOT EXISTS stock_count_state (
       id INTEGER PRIMARY KEY CHECK (id = 1),

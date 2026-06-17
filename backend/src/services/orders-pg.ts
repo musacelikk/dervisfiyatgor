@@ -9,6 +9,30 @@ import {
   type OrderStatus,
 } from "../types/order";
 
+const ORDER_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const ORDER_CODE_LENGTH = 6;
+
+function generateOrderCode(): string {
+  let code = "";
+  for (let i = 0; i < ORDER_CODE_LENGTH; i++) {
+    code += ORDER_CODE_CHARS[Math.floor(Math.random() * ORDER_CODE_CHARS.length)];
+  }
+  return code;
+}
+
+async function getUniqueOrderCode(): Promise<string> {
+  const pool = getPool();
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const code = generateOrderCode();
+    const { rows } = await pool.query(
+      `SELECT id FROM orders WHERE order_code = $1 LIMIT 1`,
+      [code]
+    );
+    if (!rows[0]) return code;
+  }
+  throw new Error("Benzersiz sipariş kodu oluşturulamadı.");
+}
+
 function validateCreateInput(input: CreateOrderInput): void {
   const firstName = input.firstName?.trim() ?? "";
   const lastName = input.lastName?.trim() ?? "";
@@ -54,6 +78,7 @@ function mapItemRow(row: Record<string, unknown>): OrderItemRow {
 
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
   validateCreateInput(input);
+  const orderCode = await getUniqueOrderCode();
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");
@@ -62,10 +87,10 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     const phone = input.phone?.trim() || null;
 
     const orderResult = await client.query(
-      `INSERT INTO orders (first_name, last_name, phone, status, updated_at)
-       VALUES ($1, $2, $3, 'pending', NOW())
+      `INSERT INTO orders (order_code, first_name, last_name, phone, status, updated_at)
+       VALUES ($1, $2, $3, $4, 'pending', NOW())
        RETURNING *`,
-      [firstName, lastName, phone]
+      [orderCode, firstName, lastName, phone]
     );
     const orderRow = mapOrderRow(orderResult.rows[0]);
     const itemRows: OrderItemRow[] = [];

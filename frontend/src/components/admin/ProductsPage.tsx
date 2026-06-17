@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createProduct,
   deleteProduct,
@@ -15,6 +15,7 @@ import {
 } from "@/lib/manager-api";
 import {
   hasPermission,
+  PAGE_SIZE_OPTIONS,
   type PageSizeOption,
   type PermissionId,
 } from "@/lib/permissions";
@@ -26,6 +27,18 @@ import { IconEdit, IconTrash } from "./AdminIcons";
 import NumericField from "@/components/NumericField";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { formatNumericInput, parseNumericInput } from "@/lib/numeric-input";
+
+const PAGE_SIZE_KEY = "dervismobil-products-page-size";
+
+function loadSavedPageSize(): PageSizeOption {
+  try {
+    const raw = localStorage.getItem(PAGE_SIZE_KEY);
+    if (raw === "all") return "all";
+    const n = Number(raw);
+    if (PAGE_SIZE_OPTIONS.includes(n as PageSizeOption)) return n as PageSizeOption;
+  } catch { /* SSR or blocked */ }
+  return 100;
+}
 
 type FormMode = { type: "create" } | { type: "edit"; product: Product };
 
@@ -99,7 +112,7 @@ export default function ProductsPage({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<PageSizeOption>(25);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(100);
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -109,6 +122,48 @@ export default function ProductsPage({
   const [form, setForm] = useState<FormState>(productToForm(emptyProduct()));
   const [saving, setSaving] = useState(false);
   const [stockCount, setStockCount] = useState<StockCountState | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<Element | null>(null);
+
+  // Load persisted page size (client-side only)
+  useEffect(() => {
+    const saved = loadSavedPageSize();
+    setPageSize(saved);
+  }, []);
+
+  // Scroll-to-top: detect when sentinel goes out of view
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    // Find the scrollable ancestor (admin-main or employee-main)
+    let el: Element | null = sentinel.parentElement;
+    while (el && el !== document.documentElement) {
+      const style = window.getComputedStyle(el);
+      const oy = style.overflowY;
+      if (oy === "auto" || oy === "scroll") {
+        scrollContainerRef.current = el;
+        break;
+      }
+      el = el.parentElement;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowScrollTop(!entry.isIntersecting),
+      { threshold: 0, root: scrollContainerRef.current ?? null }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollToTop = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -229,7 +284,10 @@ export default function ProductsPage({
 
   return (
     <div className={`admin-page admin-page-wide${isEmployee ? " employee-page" : ""}`}>
-      <div className="admin-toolbar-card">
+      {/* Sentinel for scroll-to-top detection */}
+      <div ref={sentinelRef} aria-hidden style={{ height: 1, marginBottom: -1 }} />
+
+      <div className="admin-toolbar-card admin-toolbar-sticky">
         <div className="admin-toolbar-search-block">
           <div className="admin-search-row">
             <div className="admin-search-wrap">
@@ -450,13 +508,31 @@ export default function ProductsPage({
             totalPages={totalPages}
             total={total}
             pageSize={pageSize}
-            onPageChange={setPage}
+            onPageChange={(p) => {
+              setPage(p);
+              scrollToTop();
+            }}
             onPageSizeChange={(size) => {
               setPageSize(size);
               setPage(1);
+              try { localStorage.setItem(PAGE_SIZE_KEY, String(size)); } catch { /* ignore */ }
             }}
           />
         </>
+      )}
+
+      {/* Scroll to top button */}
+      {showScrollTop && (
+        <button
+          type="button"
+          className="products-scroll-top-btn"
+          onClick={scrollToTop}
+          aria-label="En üste çık"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
       )}
 
       {formMode && (

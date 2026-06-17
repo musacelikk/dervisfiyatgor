@@ -42,7 +42,7 @@ export default function BottomSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="sheet-title"
-        className="relative z-10 flex max-h-[min(88vh,680px)] flex-col rounded-t-2xl bg-white shadow-2xl ring-1 ring-zinc-200/80"
+        className="relative z-10 flex max-h-[min(88vh,680px)] flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl ring-1 ring-zinc-200/80"
       >
         <div className="flex shrink-0 justify-center pt-3 pb-1">
           <span className="h-1 w-10 rounded-full bg-zinc-300" />
@@ -89,7 +89,10 @@ export default function BottomSheet({
             </svg>
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4"
+          style={{ touchAction: "pan-y", overscrollBehavior: "contain" }}
+        >
           {children}
         </div>
       </div>
