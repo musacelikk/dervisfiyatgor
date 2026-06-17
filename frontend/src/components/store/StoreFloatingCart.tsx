@@ -7,6 +7,7 @@ type StoreFloatingCartProps = {
   total: number | null;
   onOpen: () => void;
   hidden?: boolean;
+  className?: string;
 };
 
 export default function StoreFloatingCart({
@@ -14,11 +15,12 @@ export default function StoreFloatingCart({
   total,
   onOpen,
   hidden = false,
+  className,
 }: StoreFloatingCartProps) {
   if (itemCount <= 0 || hidden) return null;
 
   return (
-    <div className="store-floating-cart-wrap">
+    <div className={`store-floating-cart-wrap${className ? ` ${className}` : ""}`}>
       <button type="button" className="store-floating-cart" onClick={onOpen}>
         <span className="store-floating-cart-icon" aria-hidden>
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>

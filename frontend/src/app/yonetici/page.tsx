@@ -9,7 +9,7 @@ export default async function YoneticiPage() {
   if (!employee) redirect("/yonetici/login");
 
   if (hasPermission(employee.permissions, "scan")) {
-    return <ScanPage variant="manager" permissions={employee.permissions} />;
+    return <ScanPage variant="manager" permissions={employee.permissions} personnelName={employee.name} />;
   }
 
   redirect(resolveEmployeeHomePath(employee.permissions));

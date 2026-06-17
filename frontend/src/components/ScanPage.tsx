@@ -47,9 +47,14 @@ function StatusBanner({
 interface ScanPageProps {
   variant?: "store" | "manager";
   permissions?: PermissionId[];
+  personnelName?: string;
 }
 
-export default function ScanPage({ variant = "store", permissions = [] }: ScanPageProps) {
+export default function ScanPage({
+  variant = "store",
+  permissions = [],
+  personnelName,
+}: ScanPageProps) {
   const isManager = variant === "manager";
   const showPurchasePrices =
     isManager && hasPermission(permissions, "prices.purchase");
@@ -69,8 +74,11 @@ export default function ScanPage({ variant = "store", permissions = [] }: ScanPa
   const [barcodeLookup, setBarcodeLookup] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const { lines, setLines, addProduct, itemCount: cartCount } = useStoreCart();
+  const { lines, setLines, addProduct, itemCount: cartCount } = useStoreCart(
+    isManager ? "personnel" : "store"
+  );
   const cartSum = cartTotal(lines);
+  const hasCart = cartCount > 0;
 
   const refreshHealth = useCallback(async () => {
     try {
@@ -227,7 +235,8 @@ export default function ScanPage({ variant = "store", permissions = [] }: ScanPa
     setToast(`${product.name} sepete eklendi`);
   };
 
-  const storeHasCart = !isManager && cartCount > 0;
+  const storeHasCart = !isManager && hasCart;
+  const employeeHasCart = isManager && hasCart;
 
   return (
     <div className={isManager ? "employee-scan-page" : "store-page store-page-shell flex flex-col"}>
@@ -243,7 +252,7 @@ export default function ScanPage({ variant = "store", permissions = [] }: ScanPa
       <main
         className={
           isManager
-            ? "employee-main-scan"
+            ? `employee-main-scan${employeeHasCart ? " employee-main-scan-with-cart" : ""}`
             : `store-main${storeHasCart ? " store-main-with-cart" : ""}`
         }
       >
@@ -366,9 +375,7 @@ export default function ScanPage({ variant = "store", permissions = [] }: ScanPa
         title={sheetTitle}
         subtitle={
           sheetView === "list"
-            ? isManager
-              ? "Detay için satıra dokunun"
-              : "Sepete ekleyin veya detay için dokunun"
+            ? "Sepete ekleyin veya detay için dokunun"
             : selectedProduct?.stockCode
         }
       >
@@ -381,21 +388,17 @@ export default function ScanPage({ variant = "store", permissions = [] }: ScanPa
           <ProductResultList
             products={results}
             onSelect={handleSelectProduct}
-            storeMode={!isManager}
-            onAddToCart={!isManager ? handleAddToCart : undefined}
+            storeMode
+            onAddToCart={handleAddToCart}
           />
         ) : selectedProduct ? (
           <ProductDetailView
             product={selectedProduct}
             showPurchasePrices={showPurchasePrices}
-            onAddToCart={
-              !isManager
-                ? (quantity) => {
-                    handleAddToCart(selectedProduct, quantity);
-                    setCartOpen(true);
-                  }
-                : undefined
-            }
+            onAddToCart={(quantity) => {
+              handleAddToCart(selectedProduct, quantity);
+              setCartOpen(true);
+            }}
           />
         ) : (
           <p className="py-10 text-center text-sm text-zinc-500">
@@ -404,27 +407,27 @@ export default function ScanPage({ variant = "store", permissions = [] }: ScanPa
         )}
       </BottomSheet>
 
-      {!isManager && (
-        <>
-          <StoreFloatingCart
-            itemCount={cartCount}
-            total={cartSum}
-            onOpen={() => setCartOpen(true)}
-            hidden={cartOpen}
-          />
-          <StoreToast
-            message={toast}
-            onClear={() => setToast(null)}
-            aboveFloatingCart={storeHasCart && !cartOpen}
-          />
-          <CartSheet
-            open={cartOpen}
-            onClose={() => setCartOpen(false)}
-            lines={lines}
-            onLinesChange={setLines}
-          />
-        </>
-      )}
+      <StoreFloatingCart
+        itemCount={cartCount}
+        total={cartSum}
+        onOpen={() => setCartOpen(true)}
+        hidden={cartOpen || (!storeHasCart && !employeeHasCart)}
+        className={isManager ? "store-floating-cart-wrap--employee" : undefined}
+      />
+      <StoreToast
+        message={toast}
+        onClear={() => setToast(null)}
+        aboveFloatingCart={(storeHasCart || employeeHasCart) && !cartOpen}
+        className={isManager ? "store-toast--employee" : undefined}
+      />
+      <CartSheet
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        lines={lines}
+        onLinesChange={setLines}
+        mode={isManager ? "personnel" : "store"}
+        personnelName={personnelName}
+      />
     </div>
   );
 }

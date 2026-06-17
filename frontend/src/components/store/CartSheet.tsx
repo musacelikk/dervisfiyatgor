@@ -11,6 +11,7 @@ import {
   type CartLine,
 } from "@/lib/cart";
 import { formatOrderMoney, submitOrder } from "@/lib/orders-api";
+import { formatPersonnelCustomerName, splitPersonnelOrderName } from "@/lib/personnel-order";
 import { formatStorePrice, productSalePrice } from "@/lib/store-format";
 import { beginMobileDownloadPreview } from "@/lib/download-blob";
 import { downloadOrderExcel } from "@/lib/excel-order";
@@ -22,9 +23,22 @@ type CartSheetProps = {
   onClose: () => void;
   lines: CartLine[];
   onLinesChange: (lines: CartLine[]) => void;
+  mode?: "store" | "personnel";
+  personnelName?: string;
 };
 
-export default function CartSheet({ open, onClose, lines, onLinesChange }: CartSheetProps) {
+export default function CartSheet({
+  open,
+  onClose,
+  lines,
+  onLinesChange,
+  mode = "store",
+  personnelName,
+}: CartSheetProps) {
+  const isPersonnel = mode === "personnel" && Boolean(personnelName?.trim());
+  const personnelCustomerName = personnelName
+    ? formatPersonnelCustomerName(personnelName)
+    : "Personel";
   const [step, setStep] = useState<"cart" | "checkout" | "success">("cart");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -50,20 +64,31 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
     }
   };
 
-  const handleSubmitOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const normalized = fullName.trim().replace(/\s+/g, " ");
-    const spaceIndex = normalized.indexOf(" ");
-    if (spaceIndex === -1) {
-      setError("Ad ve soyadınızı birlikte yazın (örn. Ahmet Yılmaz).");
-      return;
-    }
+  const handleSubmitOrder = async (e?: React.FormEvent) => {
+    e?.preventDefault();
 
-    const firstName = normalized.slice(0, spaceIndex);
-    const lastName = normalized.slice(spaceIndex + 1);
-    if (firstName.length < 2 || lastName.length < 2) {
-      setError("Ad ve soyad en az 2 karakter olmalı.");
-      return;
+    let firstName: string;
+    let lastName: string;
+    let phoneValue: string | undefined;
+
+    if (isPersonnel) {
+      ({ firstName, lastName } = splitPersonnelOrderName(personnelName!));
+      phoneValue = undefined;
+    } else {
+      const normalized = fullName.trim().replace(/\s+/g, " ");
+      const spaceIndex = normalized.indexOf(" ");
+      if (spaceIndex === -1) {
+        setError("Ad ve soyadınızı birlikte yazın (örn. Ahmet Yılmaz).");
+        return;
+      }
+
+      firstName = normalized.slice(0, spaceIndex);
+      lastName = normalized.slice(spaceIndex + 1);
+      if (firstName.length < 2 || lastName.length < 2) {
+        setError("Ad ve soyad en az 2 karakter olmalı.");
+        return;
+      }
+      phoneValue = phone.trim() || undefined;
     }
 
     setLoading(true);
@@ -72,13 +97,13 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
       const order = await submitOrder({
         firstName,
         lastName,
-        phone: phone.trim() || undefined,
+        phone: phoneValue,
         items: lines.map((line) => ({
           stockCode: line.product.stockCode,
           quantity: line.quantity,
         })),
       });
-      clearCartStorage();
+      clearCartStorage(isPersonnel ? "personnel" : "store");
       onLinesChange([]);
       setOrderId(order.id);
       setCompletedOrder(order);
@@ -90,6 +115,14 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
     }
   };
 
+  const handleStartCheckout = () => {
+    if (isPersonnel) {
+      void handleSubmitOrder();
+      return;
+    }
+    setStep("checkout");
+  };
+
   const handleDownloadCartPDF = async () => {
     if (lines.length === 0) return;
     const previewWindow = beginMobilePdfPreview();
@@ -99,8 +132,8 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
       await downloadOrderPDF(
         {
           lines,
-          customerName: fullName.trim() || "—",
-          phone: phone.trim() || undefined,
+          customerName: isPersonnel ? personnelCustomerName : fullName.trim() || "—",
+          phone: isPersonnel ? undefined : phone.trim() || undefined,
           orderCode: "—",
         },
         { previewWindow }
@@ -137,8 +170,8 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
       await downloadOrderExcel(
         {
           lines,
-          customerName: fullName.trim() || "—",
-          phone: phone.trim() || undefined,
+          customerName: isPersonnel ? personnelCustomerName : fullName.trim() || "—",
+          phone: isPersonnel ? undefined : phone.trim() || undefined,
           orderCode: "—",
         },
         { previewWindow }
@@ -278,12 +311,18 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
                   <span>Toplam</span>
                   <strong>{formatOrderMoney(total)}</strong>
                 </div>
+                {isPersonnel && (
+                  <p className="store-cart-personnel-note">
+                    Müşteri: <strong>{personnelCustomerName}</strong>
+                  </p>
+                )}
                 <button
                   type="button"
                   className="store-cart-checkout-btn"
-                  onClick={() => setStep("checkout")}
+                  disabled={loading || (isPersonnel && !personnelName?.trim())}
+                  onClick={() => void handleStartCheckout()}
                 >
-                  Siparişi oluştur
+                  {loading ? "Gönderiliyor…" : "Siparişi oluştur"}
                 </button>
                 <button
                   type="button"
@@ -353,7 +392,11 @@ export default function CartSheet({ open, onClose, lines, onLinesChange }: CartS
               Sipariş kodunuz: <strong>{completedOrder.orderCode}</strong>
             </p>
           )}
-          <p>Siparişiniz mağazaya iletildi. En kısa sürede değerlendirilecektir.</p>
+          <p>
+            {isPersonnel
+              ? "Sipariş oluşturuldu ve sipariş listesine eklendi."
+              : "Siparişiniz mağazaya iletildi. En kısa sürede değerlendirilecektir."}
+          </p>
           <div className="store-cart-success-actions">
             {completedOrder && (
               <>

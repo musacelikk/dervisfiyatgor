@@ -1536,6 +1536,41 @@ textarea {
   }
 }
 
+.employee-main-scan-with-cart {
+  padding-bottom: max(6.5rem, calc(env(safe-area-inset-bottom) + 5.5rem));
+}
+
+.store-floating-cart-wrap--employee {
+  z-index: 35;
+}
+
+@media (max-width: 767px) {
+  .store-floating-cart-wrap--employee {
+    bottom: calc(3.35rem + env(safe-area-inset-bottom));
+  }
+
+  .store-toast--employee.store-toast {
+    bottom: max(8.75rem, calc(env(safe-area-inset-bottom) + 7.5rem));
+  }
+
+  .store-toast--employee.store-toast-low {
+    bottom: max(4.5rem, calc(env(safe-area-inset-bottom) + 3.5rem));
+  }
+}
+
+.store-cart-personnel-note {
+  margin-bottom: 0.25rem;
+  border-radius: 0.625rem;
+  background: #f4f4f5;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.8125rem;
+  color: #52525b;
+}
+
+.store-cart-personnel-note strong {
+  color: #18181b;
+}
+
 .employee-bottomnav {
   position: sticky;
   bottom: 0;

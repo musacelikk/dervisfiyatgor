@@ -5,12 +5,21 @@ export type CartLine = {
   quantity: number;
 };
 
-const STORAGE_KEY = "dervismobil-cart";
+const STORAGE_KEYS = {
+  store: "dervismobil-cart",
+  personnel: "dervismobil-cart-personnel",
+} as const;
 
-export function readCart(): CartLine[] {
+export type CartScope = keyof typeof STORAGE_KEYS;
+
+function storageKey(scope: CartScope = "store"): string {
+  return STORAGE_KEYS[scope];
+}
+
+export function readCart(scope: CartScope = "store"): CartLine[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(scope));
     if (!raw) return [];
     const parsed = JSON.parse(raw) as CartLine[];
     if (!Array.isArray(parsed)) return [];
@@ -25,9 +34,9 @@ export function readCart(): CartLine[] {
   }
 }
 
-export function writeCart(lines: CartLine[]): void {
+export function writeCart(lines: CartLine[], scope: CartScope = "store"): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+  localStorage.setItem(storageKey(scope), JSON.stringify(lines));
 }
 
 export function cartItemCount(lines: CartLine[]): number {
@@ -75,7 +84,7 @@ export function removeFromCart(lines: CartLine[], stockCode: string): CartLine[]
   return lines.filter((line) => line.product.stockCode !== stockCode);
 }
 
-export function clearCartStorage(): void {
+export function clearCartStorage(scope: CartScope = "store"): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(storageKey(scope));
 }

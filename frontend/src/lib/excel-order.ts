@@ -18,24 +18,8 @@ export async function downloadOrderExcel(
   const exportData = buildOrderExportData(data);
 
   const sheetRows: (string | number)[][] = [
-    ["FİYAT TEKLİFİ"],
-    [],
-    ["Müşteri Bilgileri"],
-    ["Ad Soyad", exportData.customerName],
+    ["#", "Stok Kodu", "Stok Adı", "Birim Fiyat", "Adet", "Toplam"],
   ];
-
-  if (exportData.phone) {
-    sheetRows.push(["Telefon", exportData.phone]);
-  }
-
-  sheetRows.push(
-    [],
-    ["Sipariş Bilgileri"],
-    ["Tarih", exportData.orderDate],
-    ["Sipariş Kodu", exportData.orderCode],
-    [],
-    ["#", "Stok Kodu", "Stok Adı", "Birim Fiyat", "Adet", "Toplam"]
-  );
 
   for (const row of exportData.rows) {
     sheetRows.push([
@@ -48,8 +32,6 @@ export async function downloadOrderExcel(
     ]);
   }
 
-  sheetRows.push([], ["", "", "", "", "GENEL TOPLAM", exportData.grandTotal ?? ""]);
-
   const worksheet = XLSX.utils.aoa_to_sheet(sheetRows);
   worksheet["!cols"] = [
     { wch: 5 },
@@ -61,7 +43,7 @@ export async function downloadOrderExcel(
   ];
 
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Fiyat Teklifi");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Sipariş");
 
   const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
   const blob = new Blob([buffer], { type: XLSX_MIME });

@@ -6,12 +6,14 @@ type StoreToastProps = {
   message: string | null;
   onClear: () => void;
   aboveFloatingCart?: boolean;
+  className?: string;
 };
 
 export default function StoreToast({
   message,
   onClear,
   aboveFloatingCart = false,
+  className,
 }: StoreToastProps) {
   useEffect(() => {
     if (!message) return;
@@ -23,7 +25,7 @@ export default function StoreToast({
 
   return (
     <div
-      className={`store-toast${aboveFloatingCart ? "" : " store-toast-low"}`}
+      className={`store-toast${aboveFloatingCart ? "" : " store-toast-low"}${className ? ` ${className}` : ""}`}
       role="status"
     >
       {message}
