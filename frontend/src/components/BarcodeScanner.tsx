@@ -40,7 +40,7 @@ export default function BarcodeScanner({
   const [starting, setStarting] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [flashOn, setFlashOn] = useState(() => readScannerFlashPref());
+  const [flashOn, setFlashOn] = useState(false);
   const [flashSupported, setFlashSupported] = useState(false);
   const [flashBusy, setFlashBusy] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
@@ -51,6 +51,10 @@ export default function BarcodeScanner({
 
   useEffect(() => {
     setPortalReady(true);
+  }, []);
+
+  useEffect(() => {
+    setFlashOn(readScannerFlashPref());
   }, []);
 
   const stopScanner = useCallback(async () => {

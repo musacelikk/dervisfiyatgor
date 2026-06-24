@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   addToCart,
   cartItemCount,
@@ -15,12 +15,13 @@ import {
 import type { Product } from "@/types/product";
 
 export function useStoreCart(scope: CartScope = "store") {
-  const [lines, setLines] = useState<CartLine[]>(() =>
-    typeof window === "undefined" ? [] : readCart(scope)
-  );
-  const [priceTier, setPriceTierState] = useState<PriceTier>(() =>
-    typeof window === "undefined" ? 1 : readPriceTier(scope)
-  );
+  const [lines, setLines] = useState<CartLine[]>([]);
+  const [priceTier, setPriceTierState] = useState<PriceTier>(1);
+
+  useEffect(() => {
+    setLines(readCart(scope));
+    setPriceTierState(readPriceTier(scope));
+  }, [scope]);
 
   const persist = (next: CartLine[]) => {
     setLines(next);
