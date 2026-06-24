@@ -22,8 +22,14 @@
   --shadow-md: 0 4px 16px rgb(0 0 0 / 0.08);
   --shadow-nav: 0 -4px 24px rgb(0 0 0 / 0.06);
   --bottomnav-inner-height: 3.75rem;
-  --employee-bottomnav-height: calc(var(--bottomnav-inner-height) + env(safe-area-inset-bottom));
-  --admin-bottomnav-height: calc(var(--bottomnav-inner-height) + env(safe-area-inset-bottom));
+  --bottomnav-padding-block: 0.75rem;
+  --employee-floating-cart-height: 4.25rem;
+  --employee-bottomnav-height: calc(
+    var(--bottomnav-inner-height) + var(--bottomnav-padding-block) + env(safe-area-inset-bottom)
+  );
+  --admin-bottomnav-height: calc(
+    var(--bottomnav-inner-height) + var(--bottomnav-padding-block) + env(safe-area-inset-bottom)
+  );
 }
 
 @theme inline {
@@ -1401,16 +1407,17 @@ textarea {
   background: linear-gradient(90deg, var(--accent) 0%, var(--accent-dark) 55%, #991b1b 100%);
 }
 
-.employee-header-top {
+.employee-header-main {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem 1rem 0;
+  gap: 0.625rem;
+  padding: 0.625rem 1rem;
+  padding-top: max(0.625rem, env(safe-area-inset-top));
 }
 
-.employee-header-meta {
-  padding: 0.375rem 1rem 0.625rem;
+.employee-header-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .employee-header-brand {
@@ -1419,11 +1426,14 @@ textarea {
 
 .employee-header-title {
   margin: 0;
-  font-size: 1.0625rem;
+  font-size: 0.9375rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.2;
   color: #18181b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .employee-header-sub {
@@ -1431,13 +1441,18 @@ textarea {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.375rem;
-  margin: 0.25rem 0 0;
+  margin: 0.125rem 0 0;
+  min-width: 0;
 }
 
 .employee-header-user {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: #52525b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 8rem;
 }
 
 .employee-header-count {
@@ -1595,7 +1610,12 @@ textarea {
 }
 
 .employee-main-scan-with-cart {
-  padding-bottom: max(6.5rem, calc(var(--employee-bottomnav-height) + 3.75rem));
+  padding-bottom: max(
+    7rem,
+    calc(
+      var(--employee-bottomnav-height) + var(--employee-floating-cart-height) + 0.5rem
+    )
+  );
 }
 
 .store-cart-personnel-note {
@@ -1625,6 +1645,7 @@ textarea {
   min-height: var(--bottomnav-inner-height);
   padding: 0.375rem 0.5rem;
   padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 
 @media (min-width: 768px) {
@@ -4161,9 +4182,9 @@ textarea {
 }
 
 .store-floating-cart-wrap.store-floating-cart-wrap--employee {
-  bottom: var(--employee-bottomnav-height);
-  z-index: 45;
-  padding: 0.5rem 0.875rem 0.375rem;
+  bottom: calc(var(--employee-bottomnav-height) + 0.375rem);
+  z-index: 40;
+  padding: 0 1rem 0.25rem;
 }
 
 @media (min-width: 768px) {
@@ -4173,11 +4194,19 @@ textarea {
 }
 
 .store-toast--employee.store-toast {
-  bottom: max(9.5rem, calc(var(--employee-bottomnav-height) + 5.5rem));
+  bottom: max(
+    10rem,
+    calc(
+      var(--employee-bottomnav-height) + var(--employee-floating-cart-height) + 1.25rem
+    )
+  );
 }
 
 .store-toast--employee.store-toast-low {
-  bottom: max(5.25rem, calc(var(--employee-bottomnav-height) + 1.5rem));
+  bottom: max(
+    6rem,
+    calc(var(--employee-bottomnav-height) + 1.5rem)
+  );
 }
 
 @media (min-width: 768px) {

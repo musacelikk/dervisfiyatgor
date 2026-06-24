@@ -80,10 +80,22 @@ export default function EmployeeShell({ children }: { children: React.ReactNode 
     <div className="employee-layout">
       <header className="employee-header">
         <p className="employee-header-accent" aria-hidden />
-        <div className="employee-header-top">
+        <div className="employee-header-main">
           <Link href="/yonetici" className="employee-header-brand">
             <BrandLogo size="sm" priority />
           </Link>
+
+          <div className="employee-header-info">
+            <h1 className="employee-header-title">{pageTitle}</h1>
+            <p className="employee-header-sub">
+              <span className="employee-header-user">{session?.name ?? "Çalışan"}</span>
+              {productCount != null && (
+                <span className="employee-header-count">
+                  {productCount.toLocaleString("tr-TR")} ürün
+                </span>
+              )}
+            </p>
+          </div>
 
           <div className="employee-header-actions">
             {showStoreLink && (
@@ -110,18 +122,6 @@ export default function EmployeeShell({ children }: { children: React.ReactNode 
               </svg>
             </button>
           </div>
-        </div>
-
-        <div className="employee-header-meta">
-          <h1 className="employee-header-title">{pageTitle}</h1>
-          <p className="employee-header-sub">
-            <span className="employee-header-user">{session?.name ?? "Çalışan"}</span>
-            {productCount != null && (
-              <span className="employee-header-count">
-                {productCount.toLocaleString("tr-TR")} ürün
-              </span>
-            )}
-          </p>
         </div>
 
         {visibleNav.length > 1 && (
