@@ -13,7 +13,7 @@ import {
   updateOrderStatus,
 } from "@/lib/orders-api";
 import { downloadOrderExcel } from "@/lib/excel-order";
-import { beginMobilePdfPreview, downloadOrderPDF } from "@/lib/pdf-order";
+import { downloadOrderPDF } from "@/lib/pdf-order";
 import {
   ORDER_STATUS_CLASSES,
   ORDER_STATUS_LABELS,
@@ -146,13 +146,11 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
   };
 
   const handleDownloadPDF = async (order: Order) => {
-    const previewWindow = beginMobilePdfPreview();
     setPdfLoading(true);
     setError(null);
     try {
-      await downloadOrderPDF({ order }, { previewWindow });
+      await downloadOrderPDF({ order });
     } catch (err) {
-      previewWindow?.close();
       setError(err instanceof Error ? err.message : "PDF oluşturulamadı.");
     } finally {
       setPdfLoading(false);

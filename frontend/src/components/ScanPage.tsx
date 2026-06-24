@@ -74,10 +74,10 @@ export default function ScanPage({
   const [barcodeLookup, setBarcodeLookup] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const { lines, setLines, addProduct, itemCount: cartCount } = useStoreCart(
+  const { lines, setLines, addProduct, itemCount: cartCount, priceTier, setPriceTier } = useStoreCart(
     isManager ? "personnel" : "store"
   );
-  const cartSum = cartTotal(lines);
+  const cartSum = cartTotal(lines, priceTier);
   const hasCart = cartCount > 0;
 
   const refreshHealth = useCallback(async () => {
@@ -427,6 +427,8 @@ export default function ScanPage({
         onLinesChange={setLines}
         mode={isManager ? "personnel" : "store"}
         personnelName={personnelName}
+        priceTier={priceTier}
+        onPriceTierChange={setPriceTier}
       />
     </div>
   );

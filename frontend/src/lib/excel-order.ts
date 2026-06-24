@@ -5,15 +5,12 @@ import {
   orderExportFileBaseName,
   type OrderExportInput,
 } from "@/lib/order-export";
-import { saveBlobFile, type DownloadFileOptions } from "@/lib/download-blob";
+import { saveBlobFile } from "@/lib/download-blob";
 
 const XLSX_MIME =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-export async function downloadOrderExcel(
-  data: OrderExportInput,
-  options?: DownloadFileOptions
-): Promise<void> {
+export async function downloadOrderExcel(data: OrderExportInput): Promise<void> {
   const XLSX = await import("xlsx");
   const exportData = buildOrderExportData(data);
 
@@ -49,5 +46,5 @@ export async function downloadOrderExcel(
   const blob = new Blob([buffer], { type: XLSX_MIME });
   const fileName = `${orderExportFileBaseName(exportData.orderCode)}.xlsx`;
 
-  saveBlobFile(blob, fileName, XLSX_MIME, options?.previewWindow);
+  saveBlobFile(blob, fileName, XLSX_MIME);
 }

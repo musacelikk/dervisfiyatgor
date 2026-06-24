@@ -1,6 +1,8 @@
-import type { CartLine } from "@/lib/cart";
-import { productSalePrice } from "@/lib/store-format";
+import type { CartLine, PriceTier } from "@/lib/cart";
+import { productUnitPrice } from "@/lib/store-format";
 import type { Order } from "@/types/order";
+
+export type { PriceTier };
 
 export type OrderExportRow = {
   no: number;
@@ -19,8 +21,6 @@ export type OrderExportData = {
   rows: OrderExportRow[];
   grandTotal: number | null;
 };
-
-export type PriceTier = 1 | 2;
 
 export type OrderExportInputFromCart = {
   lines: CartLine[];
@@ -75,16 +75,12 @@ export function buildOrderExportData(data: OrderExportInput): OrderExportData {
 
   const tier = data.priceTier ?? 1;
   const rows = data.lines.map((line, i) => {
-    const p = line.product;
-    const unitPrice =
-      tier === 2
-        ? (p.salePrice2 ?? p.salePrice1)
-        : (p.salePrice1 ?? p.salePrice2);
+    const unitPrice = productUnitPrice(line.product, tier);
     const total = unitPrice != null ? unitPrice * line.quantity : null;
     return {
       no: i + 1,
-      stockCode: p.stockCode,
-      name: p.name,
+      stockCode: line.product.stockCode,
+      name: line.product.name,
       unitPrice,
       qty: line.quantity,
       total,

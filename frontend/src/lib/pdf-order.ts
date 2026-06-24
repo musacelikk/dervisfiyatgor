@@ -1,6 +1,6 @@
 "use client";
 
-import { beginMobileDownloadPreview, saveBlobFile, type DownloadFileOptions } from "@/lib/download-blob";
+import { saveBlobFile } from "@/lib/download-blob";
 import {
   buildOrderExportData,
   orderExportFileBaseName,
@@ -12,13 +12,6 @@ const FONT_BOLD = "Roboto-Bold.ttf";
 const FONT_FAMILY = "Roboto";
 
 let cachedFontData: { regular: string; bold: string } | null = null;
-
-export type DownloadOrderPdfOptions = DownloadFileOptions;
-
-/** @deprecated beginMobileDownloadPreview kullanın */
-export function beginMobilePdfPreview(): Window | null {
-  return beginMobileDownloadPreview("PDF");
-}
 
 function formatPrice(value: number | null | undefined): string {
   if (value == null) return "—";
@@ -80,10 +73,7 @@ function buildColumnLayout(marginL: number, colWidths: number[], colGap: number)
   return colX;
 }
 
-export async function downloadOrderPDF(
-  data: PDFOrderData,
-  options?: DownloadOrderPdfOptions
-): Promise<void> {
+export async function downloadOrderPDF(data: PDFOrderData): Promise<void> {
   const { jsPDF } = await import("jspdf");
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -233,7 +223,7 @@ export async function downloadOrderPDF(
   doc.text(formatPrice(grandTotal), pageW - marginR, y + 1, { align: "right" });
 
   const fileName = `${orderExportFileBaseName(orderCode)}.pdf`;
-  saveBlobFile(doc.output("blob"), fileName, "application/pdf", options?.previewWindow);
+  saveBlobFile(doc.output("blob"), fileName, "application/pdf");
 }
 
 function cellTextX(

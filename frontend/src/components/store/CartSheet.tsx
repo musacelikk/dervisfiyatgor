@@ -8,13 +8,13 @@ import {
   removeFromCart,
   updateCartQuantity,
   type CartLine,
+  type PriceTier,
 } from "@/lib/cart";
 import { formatOrderMoney, submitOrder } from "@/lib/orders-api";
 import { formatPersonnelCustomerName, splitPersonnelOrderName } from "@/lib/personnel-order";
-import { formatStorePrice } from "@/lib/store-format";
-import type { PriceTier } from "@/lib/order-export";
+import { formatStorePrice, productUnitPrice } from "@/lib/store-format";
 import { downloadOrderExcel } from "@/lib/excel-order";
-import { beginMobilePdfPreview, downloadOrderPDF } from "@/lib/pdf-order";
+import { downloadOrderPDF } from "@/lib/pdf-order";
 import type { Order } from "@/types/order";
 
 type CartSheetProps = {
@@ -24,6 +24,8 @@ type CartSheetProps = {
   onLinesChange: (lines: CartLine[]) => void;
   mode?: "store" | "personnel";
   personnelName?: string;
+  priceTier: PriceTier;
+  onPriceTierChange: (tier: PriceTier) => void;
 };
 
 export default function CartSheet({
@@ -33,6 +35,8 @@ export default function CartSheet({
   onLinesChange,
   mode = "store",
   personnelName,
+  priceTier,
+  onPriceTierChange,
 }: CartSheetProps) {
   const isPersonnel = mode === "personnel" && Boolean(personnelName?.trim());
   const personnelCustomerName = personnelName
@@ -47,16 +51,10 @@ export default function CartSheet({
   const [error, setError] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<number | null>(null);
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
-  const [priceTier, setPriceTier] = useState<PriceTier>(1);
 
   const itemCount = useMemo(() => cartItemCount(lines), [lines]);
 
-  const getUnitPrice = (product: CartLine["product"]) => {
-    const p = product;
-    return isPersonnel
-      ? (priceTier === 2 ? (p.salePrice2 ?? p.salePrice1) : (p.salePrice1 ?? p.salePrice2))
-      : (p.salePrice1 ?? p.salePrice2);
-  };
+  const getUnitPrice = (product: CartLine["product"]) => productUnitPrice(product, priceTier);
 
   const total = useMemo(() => {
     let sum = 0;
@@ -69,10 +67,8 @@ export default function CartSheet({
       }
     }
     return hasPrice ? sum : null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, priceTier, isPersonnel]);
+  }, [lines, priceTier]);
 
-  // Hiç S2 fiyatı olmayan ürün varsa toggle'ı kapat
   const hasAnyPrice2 = useMemo(
     () => lines.some((l) => l.product.salePrice2 != null),
     [lines]
@@ -80,7 +76,6 @@ export default function CartSheet({
 
   const cartScope = isPersonnel ? "personnel" : "store";
   const exportBusy = pdfLoading || excelLoading;
-  const activeTier = isPersonnel ? priceTier : 1;
 
   const handleClose = () => {
     onClose();
@@ -169,22 +164,17 @@ export default function CartSheet({
 
   const handleDownloadCartPDF = async () => {
     if (lines.length === 0) return;
-    const previewWindow = beginMobilePdfPreview();
     setPdfLoading(true);
     setError(null);
     try {
-      await downloadOrderPDF(
-        {
-          lines,
-          customerName: isPersonnel ? personnelCustomerName : fullName.trim() || "—",
-          phone: isPersonnel ? undefined : phone.trim() || undefined,
-          orderCode: "—",
-          priceTier: activeTier,
-        },
-        { previewWindow }
-      );
+      await downloadOrderPDF({
+        lines,
+        customerName: isPersonnel ? personnelCustomerName : fullName.trim() || "—",
+        phone: isPersonnel ? undefined : phone.trim() || undefined,
+        orderCode: "—",
+        priceTier,
+      });
     } catch (err) {
-      previewWindow?.close();
       setError(err instanceof Error ? err.message : "PDF oluşturulamadı.");
     } finally {
       setPdfLoading(false);
@@ -193,13 +183,11 @@ export default function CartSheet({
 
   const handleDownloadOrderPDF = async () => {
     if (!completedOrder) return;
-    const previewWindow = beginMobilePdfPreview();
     setPdfLoading(true);
     setError(null);
     try {
-      await downloadOrderPDF({ order: completedOrder }, { previewWindow });
+      await downloadOrderPDF({ order: completedOrder });
     } catch (err) {
-      previewWindow?.close();
       setError(err instanceof Error ? err.message : "PDF oluşturulamadı.");
     } finally {
       setPdfLoading(false);
@@ -216,7 +204,7 @@ export default function CartSheet({
         customerName: isPersonnel ? personnelCustomerName : fullName.trim() || "—",
         phone: isPersonnel ? undefined : phone.trim() || undefined,
         orderCode: "—",
-        priceTier: activeTier,
+        priceTier,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Excel oluşturulamadı.");
@@ -350,14 +338,14 @@ export default function CartSheet({
                   <span>Toplam</span>
                   <strong>{total != null ? formatOrderMoney(total) : "—"}</strong>
                 </div>
-                {isPersonnel && hasAnyPrice2 && (
+                {hasAnyPrice2 ? (
                   <div className="store-cart-price-tier-row">
                     <span className="store-cart-price-tier-label">Fiyat:</span>
                     <div className="store-cart-price-tier-toggle">
                       <button
                         type="button"
                         className={`store-cart-tier-btn${priceTier === 1 ? " active" : ""}`}
-                        onClick={() => setPriceTier(1)}
+                        onClick={() => onPriceTierChange(1)}
                         disabled={loading || exportBusy}
                       >
                         Satış&nbsp;1
@@ -365,7 +353,7 @@ export default function CartSheet({
                       <button
                         type="button"
                         className={`store-cart-tier-btn${priceTier === 2 ? " active" : ""}`}
-                        onClick={() => setPriceTier(2)}
+                        onClick={() => onPriceTierChange(2)}
                         disabled={loading || exportBusy}
                       >
                         Satış&nbsp;2
@@ -380,8 +368,7 @@ export default function CartSheet({
                       Sepeti temizle
                     </button>
                   </div>
-                )}
-                {(!isPersonnel || !hasAnyPrice2) && (
+                ) : (
                   <button
                     type="button"
                     className="store-cart-clear-btn"

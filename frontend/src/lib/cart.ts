@@ -1,13 +1,21 @@
 import type { Product } from "@/types/product";
+import { productUnitPrice } from "@/lib/store-format";
 
 export type CartLine = {
   product: Product;
   quantity: number;
 };
 
+export type PriceTier = 1 | 2;
+
 const STORAGE_KEYS = {
   store: "dervismobil-cart",
   personnel: "dervismobil-cart-personnel",
+} as const;
+
+const PRICE_TIER_KEYS = {
+  store: "dervismobil-price-tier",
+  personnel: "dervismobil-price-tier-personnel",
 } as const;
 
 export type CartScope = keyof typeof STORAGE_KEYS;
@@ -39,15 +47,30 @@ export function writeCart(lines: CartLine[], scope: CartScope = "store"): void {
   localStorage.setItem(storageKey(scope), JSON.stringify(lines));
 }
 
+export function readPriceTier(scope: CartScope = "store"): PriceTier {
+  if (typeof window === "undefined") return 1;
+  try {
+    const raw = localStorage.getItem(PRICE_TIER_KEYS[scope]);
+    return raw === "2" ? 2 : 1;
+  } catch {
+    return 1;
+  }
+}
+
+export function writePriceTier(tier: PriceTier, scope: CartScope = "store"): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(PRICE_TIER_KEYS[scope], String(tier));
+}
+
 export function cartItemCount(lines: CartLine[]): number {
   return lines.reduce((sum, line) => sum + line.quantity, 0);
 }
 
-export function cartTotal(lines: CartLine[]): number | null {
+export function cartTotal(lines: CartLine[], tier: PriceTier = 1): number | null {
   let total = 0;
   let hasPrice = false;
   for (const line of lines) {
-    const price = line.product.salePrice1 ?? line.product.salePrice2;
+    const price = productUnitPrice(line.product, tier);
     if (price != null) {
       hasPrice = true;
       total += price * line.quantity;
