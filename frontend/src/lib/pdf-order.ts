@@ -39,40 +39,55 @@ type TextDoc = {
   setFont: (font: string, style?: string) => void;
 };
 
-async function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const blob = new Blob([buffer]);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      resolve(dataUrl.slice(dataUrl.indexOf(",") + 1));
+    };
+    reader.onerror = () => reject(new Error("Font base64 dönüşümü başarısız."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function loadFontData(): Promise<{ regular: string; bold: string }> {
+  const [regularRes, boldRes] = await Promise.all([
+    fetch("/fonts/Roboto-Regular.ttf"),
+    fetch("/fonts/Roboto-Bold.ttf"),
+  ]);
+  if (!regularRes.ok || !boldRes.ok) {
+    throw new Error("PDF fontları yüklenemedi.");
   }
-  return btoa(binary);
+  const [regularBuf, boldBuf] = await Promise.all([
+    regularRes.arrayBuffer(),
+    boldRes.arrayBuffer(),
+  ]);
+  const [regularB64, boldB64] = await Promise.all([
+    arrayBufferToBase64(regularBuf),
+    arrayBufferToBase64(boldBuf),
+  ]);
+  // Basit bütünlük kontrolü: base64 boyutu ham boyutun ~%133'ü olmalı
+  const minExpected = (regularBuf.byteLength * 4) / 3 / 2;
+  if (regularB64.length < minExpected || boldB64.length < minExpected) {
+    throw new Error("Font verisi eksik yüklendi, tekrar denenecek.");
+  }
+  return { regular: regularB64, bold: boldB64 };
 }
 
 async function registerRobotoFont(doc: {
   addFileToVFS: (fileName: string, data: string) => void;
-  addFont: (postScriptName: string, fontName: string, style: string) => void;
+  addFont: (postScriptName: string, fontName: string, style: string, encoding: string) => void;
 }): Promise<void> {
   if (!cachedFontData) {
-    const [regularRes, boldRes] = await Promise.all([
-      fetch("/fonts/Roboto-Regular.ttf"),
-      fetch("/fonts/Roboto-Bold.ttf"),
-    ]);
-    if (!regularRes.ok || !boldRes.ok) {
-      throw new Error("PDF fontları yüklenemedi.");
-    }
-
-    const [regularB64, boldB64] = await Promise.all([
-      regularRes.arrayBuffer().then(arrayBufferToBase64),
-      boldRes.arrayBuffer().then(arrayBufferToBase64),
-    ]);
-    cachedFontData = { regular: regularB64, bold: boldB64 };
+    cachedFontData = await loadFontData();
   }
 
   doc.addFileToVFS(FONT_REGULAR, cachedFontData.regular);
   doc.addFileToVFS(FONT_BOLD, cachedFontData.bold);
-  doc.addFont(FONT_REGULAR, FONT_FAMILY, "normal");
-  doc.addFont(FONT_BOLD, FONT_FAMILY, "bold");
+  doc.addFont(FONT_REGULAR, FONT_FAMILY, "normal", "Identity-H");
+  doc.addFont(FONT_BOLD, FONT_FAMILY, "bold", "Identity-H");
 }
 
 function buildColumnLayout(marginL: number, colWidths: number[], colGap: number): number[] {

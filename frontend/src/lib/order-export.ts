@@ -20,11 +20,15 @@ export type OrderExportData = {
   grandTotal: number | null;
 };
 
+export type PriceTier = 1 | 2;
+
 export type OrderExportInputFromCart = {
   lines: CartLine[];
   customerName: string;
   phone?: string;
   orderCode?: string;
+  /** Hangi satış fiyatının kullanılacağı (varsayılan: 1) */
+  priceTier?: PriceTier;
 };
 
 export type OrderExportInputFromOrder = {
@@ -69,13 +73,18 @@ export function buildOrderExportData(data: OrderExportInput): OrderExportData {
     };
   }
 
+  const tier = data.priceTier ?? 1;
   const rows = data.lines.map((line, i) => {
-    const unitPrice = productSalePrice(line.product) ?? null;
+    const p = line.product;
+    const unitPrice =
+      tier === 2
+        ? (p.salePrice2 ?? p.salePrice1)
+        : (p.salePrice1 ?? p.salePrice2);
     const total = unitPrice != null ? unitPrice * line.quantity : null;
     return {
       no: i + 1,
-      stockCode: line.product.stockCode,
-      name: line.product.name,
+      stockCode: p.stockCode,
+      name: p.name,
       unitPrice,
       qty: line.quantity,
       total,
@@ -93,5 +102,5 @@ export function buildOrderExportData(data: OrderExportInput): OrderExportData {
 }
 
 export function orderExportFileBaseName(orderCode: string): string {
-  return `siparis-${orderCode !== "—" ? orderCode : Date.now()}`;
+  return `dervis-${orderCode !== "—" ? orderCode : Date.now()}`;
 }

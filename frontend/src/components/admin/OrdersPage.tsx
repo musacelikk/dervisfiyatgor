@@ -12,7 +12,6 @@ import {
   updateManagerOrderStatus,
   updateOrderStatus,
 } from "@/lib/orders-api";
-import { beginMobileDownloadPreview } from "@/lib/download-blob";
 import { downloadOrderExcel } from "@/lib/excel-order";
 import { beginMobilePdfPreview, downloadOrderPDF } from "@/lib/pdf-order";
 import {
@@ -161,13 +160,11 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
   };
 
   const handleDownloadExcel = async (order: Order) => {
-    const previewWindow = beginMobileDownloadPreview("Excel");
     setExcelLoading(true);
     setError(null);
     try {
-      await downloadOrderExcel({ order }, { previewWindow });
+      await downloadOrderExcel({ order });
     } catch (err) {
-      previewWindow?.close();
       setError(err instanceof Error ? err.message : "Excel oluşturulamadı.");
     } finally {
       setExcelLoading(false);

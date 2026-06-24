@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import BottomSheet from "@/components/BottomSheet";
 import {
   cartItemCount,
-  cartTotal,
   clearCartStorage,
   removeFromCart,
   updateCartQuantity,
@@ -12,8 +11,8 @@ import {
 } from "@/lib/cart";
 import { formatOrderMoney, submitOrder } from "@/lib/orders-api";
 import { formatPersonnelCustomerName, splitPersonnelOrderName } from "@/lib/personnel-order";
-import { formatStorePrice, productSalePrice } from "@/lib/store-format";
-import { beginMobileDownloadPreview } from "@/lib/download-blob";
+import { formatStorePrice } from "@/lib/store-format";
+import type { PriceTier } from "@/lib/order-export";
 import { downloadOrderExcel } from "@/lib/excel-order";
 import { beginMobilePdfPreview, downloadOrderPDF } from "@/lib/pdf-order";
 import type { Order } from "@/types/order";
@@ -48,11 +47,40 @@ export default function CartSheet({
   const [error, setError] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<number | null>(null);
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
+  const [priceTier, setPriceTier] = useState<PriceTier>(1);
 
   const itemCount = useMemo(() => cartItemCount(lines), [lines]);
-  const total = useMemo(() => cartTotal(lines), [lines]);
+
+  const getUnitPrice = (product: CartLine["product"]) => {
+    const p = product;
+    return isPersonnel
+      ? (priceTier === 2 ? (p.salePrice2 ?? p.salePrice1) : (p.salePrice1 ?? p.salePrice2))
+      : (p.salePrice1 ?? p.salePrice2);
+  };
+
+  const total = useMemo(() => {
+    let sum = 0;
+    let hasPrice = false;
+    for (const line of lines) {
+      const price = getUnitPrice(line.product);
+      if (price != null) {
+        hasPrice = true;
+        sum += price * line.quantity;
+      }
+    }
+    return hasPrice ? sum : null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, priceTier, isPersonnel]);
+
+  // Hiç S2 fiyatı olmayan ürün varsa toggle'ı kapat
+  const hasAnyPrice2 = useMemo(
+    () => lines.some((l) => l.product.salePrice2 != null),
+    [lines]
+  );
+
   const cartScope = isPersonnel ? "personnel" : "store";
   const exportBusy = pdfLoading || excelLoading;
+  const activeTier = isPersonnel ? priceTier : 1;
 
   const handleClose = () => {
     onClose();
@@ -151,6 +179,7 @@ export default function CartSheet({
           customerName: isPersonnel ? personnelCustomerName : fullName.trim() || "—",
           phone: isPersonnel ? undefined : phone.trim() || undefined,
           orderCode: "—",
+          priceTier: activeTier,
         },
         { previewWindow }
       );
@@ -179,21 +208,17 @@ export default function CartSheet({
 
   const handleDownloadCartExcel = async () => {
     if (lines.length === 0) return;
-    const previewWindow = beginMobileDownloadPreview("Excel");
     setExcelLoading(true);
     setError(null);
     try {
-      await downloadOrderExcel(
-        {
-          lines,
-          customerName: isPersonnel ? personnelCustomerName : fullName.trim() || "—",
-          phone: isPersonnel ? undefined : phone.trim() || undefined,
-          orderCode: "—",
-        },
-        { previewWindow }
-      );
+      await downloadOrderExcel({
+        lines,
+        customerName: isPersonnel ? personnelCustomerName : fullName.trim() || "—",
+        phone: isPersonnel ? undefined : phone.trim() || undefined,
+        orderCode: "—",
+        priceTier: activeTier,
+      });
     } catch (err) {
-      previewWindow?.close();
       setError(err instanceof Error ? err.message : "Excel oluşturulamadı.");
     } finally {
       setExcelLoading(false);
@@ -202,13 +227,11 @@ export default function CartSheet({
 
   const handleDownloadOrderExcel = async () => {
     if (!completedOrder) return;
-    const previewWindow = beginMobileDownloadPreview("Excel");
     setExcelLoading(true);
     setError(null);
     try {
-      await downloadOrderExcel({ order: completedOrder }, { previewWindow });
+      await downloadOrderExcel({ order: completedOrder });
     } catch (err) {
-      previewWindow?.close();
       setError(err instanceof Error ? err.message : "Excel oluşturulamadı.");
     } finally {
       setExcelLoading(false);
@@ -252,7 +275,7 @@ export default function CartSheet({
             <>
               <ul className="store-cart-list">
                 {lines.map((line) => {
-                  const unitPrice = productSalePrice(line.product) ?? 0;
+                  const unitPrice = getUnitPrice(line.product) ?? 0;
                   const lineTotal = unitPrice * line.quantity;
 
                   return (
@@ -325,16 +348,49 @@ export default function CartSheet({
               <div className="store-cart-footer">
                 <div className="store-cart-total-row">
                   <span>Toplam</span>
-                  <strong>{formatOrderMoney(total)}</strong>
+                  <strong>{total != null ? formatOrderMoney(total) : "—"}</strong>
                 </div>
-                <button
-                  type="button"
-                  className="store-cart-clear-btn"
-                  disabled={loading || exportBusy}
-                  onClick={handleClearCart}
-                >
-                  Sepeti temizle
-                </button>
+                {isPersonnel && hasAnyPrice2 && (
+                  <div className="store-cart-price-tier-row">
+                    <span className="store-cart-price-tier-label">Fiyat:</span>
+                    <div className="store-cart-price-tier-toggle">
+                      <button
+                        type="button"
+                        className={`store-cart-tier-btn${priceTier === 1 ? " active" : ""}`}
+                        onClick={() => setPriceTier(1)}
+                        disabled={loading || exportBusy}
+                      >
+                        Satış&nbsp;1
+                      </button>
+                      <button
+                        type="button"
+                        className={`store-cart-tier-btn${priceTier === 2 ? " active" : ""}`}
+                        onClick={() => setPriceTier(2)}
+                        disabled={loading || exportBusy}
+                      >
+                        Satış&nbsp;2
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      className="store-cart-clear-btn store-cart-clear-btn--inline"
+                      disabled={loading || exportBusy}
+                      onClick={handleClearCart}
+                    >
+                      Sepeti temizle
+                    </button>
+                  </div>
+                )}
+                {(!isPersonnel || !hasAnyPrice2) && (
+                  <button
+                    type="button"
+                    className="store-cart-clear-btn"
+                    disabled={loading || exportBusy}
+                    onClick={handleClearCart}
+                  >
+                    Sepeti temizle
+                  </button>
+                )}
                 {isPersonnel && (
                   <p className="store-cart-personnel-note">
                     Müşteri: <strong>{personnelCustomerName}</strong>
