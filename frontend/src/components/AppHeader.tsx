@@ -17,6 +17,7 @@ export default function AppHeader({
 }: AppHeaderProps) {
   return (
     <header className="store-header">
+      <p className="store-header-accent" aria-hidden />
       <div className="store-header-inner">
         <div className="flex min-w-0 items-center gap-2.5">
           <BrandLogo size="sm" priority />

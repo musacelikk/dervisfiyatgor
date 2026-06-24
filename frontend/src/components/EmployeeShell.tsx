@@ -156,7 +156,7 @@ export default function EmployeeShell({ children }: { children: React.ReactNode 
                 className={`employee-bottomnav-item${active ? " employee-bottomnav-item-active" : ""}`}
               >
                 <span className="employee-bottomnav-icon">{NAV_ICONS[item.href]}</span>
-                <span>{item.shortLabel}</span>
+                <span className="employee-bottomnav-label">{item.shortLabel}</span>
               </Link>
             );
           })}

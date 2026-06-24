@@ -169,7 +169,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 <span className="admin-bottomnav-icon">
                   <Icon className="h-[1.125rem] w-[1.125rem]" />
                 </span>
-                <span>{shortLabel}</span>
+                <span className="admin-bottomnav-label">{shortLabel}</span>
               </Link>
             );
           })}
