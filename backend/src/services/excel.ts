@@ -74,15 +74,53 @@ function toBarcodeString(value: unknown): string | null {
   return s;
 }
 
+/**
+ * Türkçe (1.450,50) ve İngilizce (1,450.50) sayı formatlarını doğru parse eder.
+ * raw: false ile xlsx Türkçe formatlı hücreleri "1.450,00" gibi string döndürür;
+ * binlik ayracı temizlenmeden parseFloat("1.450") = 1.45 hatasını önler.
+ */
+function parseLocalizedNumber(s: string): number | null {
+  const lastDot = s.lastIndexOf(".");
+  const lastComma = s.lastIndexOf(",");
+
+  let normalized: string;
+
+  if (lastDot >= 0 && lastComma >= 0) {
+    if (lastComma > lastDot) {
+      // Türkçe format: "1.450,50" — nokta binlik, virgül ondalık
+      normalized = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      // İngilizce format: "1,450.50" — virgül binlik, nokta ondalık
+      normalized = s.replace(/,/g, "");
+    }
+  } else if (lastComma >= 0) {
+    // Sadece virgül: "1450,50" — virgül ondalık
+    normalized = s.replace(",", ".");
+  } else if (lastDot >= 0) {
+    // Sadece nokta: "1.450" (binlik) veya "1450.50" (ondalık)
+    const afterDot = s.slice(lastDot + 1);
+    if (afterDot.length === 3 && /^\d+$/.test(afterDot)) {
+      // 3 haneli kesir → binlik ayraç ("1.450" → 1450)
+      normalized = s.replace(/\./g, "");
+    } else {
+      normalized = s;
+    }
+  } else {
+    normalized = s;
+  }
+
+  const n = parseFloat(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
 function toPriceOrNull(value: unknown): number | null {
   if (value === undefined || value === null || value === "") return null;
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
   }
-  const cleaned = String(value).trim().replace(/\s/g, "").replace(",", ".");
-  if (!cleaned) return null;
-  const n = parseFloat(cleaned);
-  return Number.isFinite(n) ? n : null;
+  const s = String(value).trim().replace(/\s/g, "");
+  if (!s) return null;
+  return parseLocalizedNumber(s);
 }
 
 function toQuantityOrNull(value: unknown): number | null {
@@ -90,10 +128,9 @@ function toQuantityOrNull(value: unknown): number | null {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
   }
-  const cleaned = String(value).trim().replace(/\s/g, "").replace(",", ".");
-  if (!cleaned) return null;
-  const n = parseFloat(cleaned);
-  return Number.isFinite(n) ? n : null;
+  const s = String(value).trim().replace(/\s/g, "");
+  if (!s) return null;
+  return parseLocalizedNumber(s);
 }
 
 function mapDataRow(
