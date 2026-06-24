@@ -39,41 +39,21 @@ type TextDoc = {
   setFont: (font: string, style?: string) => void;
 };
 
-function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    const blob = new Blob([buffer]);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      resolve(dataUrl.slice(dataUrl.indexOf(",") + 1));
-    };
-    reader.onerror = () => reject(new Error("Font base64 dönüşümü başarısız."));
-    reader.readAsDataURL(blob);
-  });
+function isValidTtfBase64(base64: string): boolean {
+  try {
+    const binary = atob(base64.slice(0, 8));
+    return binary.charCodeAt(0) === 0 && binary.charCodeAt(1) === 1 && binary.charCodeAt(2) === 0 && binary.charCodeAt(3) === 0;
+  } catch {
+    return false;
+  }
 }
 
 async function loadFontData(): Promise<{ regular: string; bold: string }> {
-  const [regularRes, boldRes] = await Promise.all([
-    fetch("/fonts/Roboto-Regular.ttf"),
-    fetch("/fonts/Roboto-Bold.ttf"),
-  ]);
-  if (!regularRes.ok || !boldRes.ok) {
-    throw new Error("PDF fontları yüklenemedi.");
+  const { ROBOTO_REGULAR_B64, ROBOTO_BOLD_B64 } = await import("@/lib/pdf-fonts");
+  if (!isValidTtfBase64(ROBOTO_REGULAR_B64) || !isValidTtfBase64(ROBOTO_BOLD_B64)) {
+    throw new Error("PDF font verisi geçersiz.");
   }
-  const [regularBuf, boldBuf] = await Promise.all([
-    regularRes.arrayBuffer(),
-    boldRes.arrayBuffer(),
-  ]);
-  const [regularB64, boldB64] = await Promise.all([
-    arrayBufferToBase64(regularBuf),
-    arrayBufferToBase64(boldBuf),
-  ]);
-  // Basit bütünlük kontrolü: base64 boyutu ham boyutun ~%133'ü olmalı
-  const minExpected = (regularBuf.byteLength * 4) / 3 / 2;
-  if (regularB64.length < minExpected || boldB64.length < minExpected) {
-    throw new Error("Font verisi eksik yüklendi, tekrar denenecek.");
-  }
-  return { regular: regularB64, bold: boldB64 };
+  return { regular: ROBOTO_REGULAR_B64, bold: ROBOTO_BOLD_B64 };
 }
 
 async function registerRobotoFont(doc: {
