@@ -65,6 +65,16 @@ export function IconCart({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
+export function IconWallet({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h13a1 1 0 011 1v2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v11a2 2 0 002 2h14a2 2 0 002-2v-8a2 2 0 00-2-2H3z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 13.5h.01" />
+    </svg>
+  );
+}
+
 export function IconLogs({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>

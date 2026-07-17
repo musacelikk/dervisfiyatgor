@@ -1,18 +1,21 @@
 import crypto from "crypto";
 
-const ADMIN_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-export const EMPLOYEE_REMEMBER_TTL_MS = 24 * 60 * 60 * 1000;
-export const EMPLOYEE_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+/** Admin oturumu: çıkış yapılmadıkça geçerli kalır (10 yıl). */
+const ADMIN_SESSION_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000;
+/**
+ * Personel oturumu: kayan (sliding) süre — her istek süreyi yeniler.
+ * 6 saat boyunca hiç kullanılmazsa oturum düşer.
+ */
+export const EMPLOYEE_IDLE_TTL_MS = 6 * 60 * 60 * 1000;
+/** @deprecated Kayan süre kullanılıyor; geriye dönük uyumluluk için tutuldu. */
+export const EMPLOYEE_REMEMBER_TTL_MS = EMPLOYEE_IDLE_TTL_MS;
+export const EMPLOYEE_SESSION_TTL_MS = EMPLOYEE_IDLE_TTL_MS;
 
 type AdminSession = { createdAt: number; ttlMs: number };
-type EmployeeSession = { employeeId: number; createdAt: number; ttlMs: number };
+type EmployeeSession = { employeeId: number; lastActivityAt: number; ttlMs: number };
 
 const adminSessions = new Map<string, AdminSession>();
 const employeeSessions = new Map<string, EmployeeSession>();
-
-function isExpired(session: { createdAt: number; ttlMs: number }): boolean {
-  return Date.now() - session.createdAt > session.ttlMs;
-}
 
 function createToken(): string {
   return crypto.randomBytes(32).toString("hex");
@@ -28,7 +31,7 @@ export function validateAdminSession(token: string | undefined): boolean {
   if (!token) return false;
   const session = adminSessions.get(token);
   if (!session) return false;
-  if (isExpired(session)) {
+  if (Date.now() - session.createdAt > session.ttlMs) {
     adminSessions.delete(token);
     return false;
   }
@@ -41,10 +44,10 @@ export function revokeAdminSession(token: string | undefined): void {
 
 export function createEmployeeSession(
   employeeId: number,
-  ttlMs = EMPLOYEE_SESSION_TTL_MS
+  ttlMs = EMPLOYEE_IDLE_TTL_MS
 ): string {
   const token = createToken();
-  employeeSessions.set(token, { employeeId, createdAt: Date.now(), ttlMs });
+  employeeSessions.set(token, { employeeId, lastActivityAt: Date.now(), ttlMs });
   return token;
 }
 
@@ -54,10 +57,13 @@ export function validateEmployeeSession(
   if (!token) return null;
   const session = employeeSessions.get(token);
   if (!session) return null;
-  if (isExpired(session)) {
+  const now = Date.now();
+  if (now - session.lastActivityAt > session.ttlMs) {
     employeeSessions.delete(token);
     return null;
   }
+  // Kayan süre: her geçerli kullanım oturumu yeniler.
+  session.lastActivityAt = now;
   return { employeeId: session.employeeId };
 }
 

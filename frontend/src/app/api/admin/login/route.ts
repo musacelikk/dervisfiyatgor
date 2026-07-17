@@ -44,7 +44,8 @@ export async function POST(request: Request) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    // Çıkış yapılmadıkça oturum kalıcı (10 yıl).
+    maxAge: 60 * 60 * 24 * 365 * 10,
   });
   return response;
 }

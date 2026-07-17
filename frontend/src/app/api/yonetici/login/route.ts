@@ -55,14 +55,11 @@ export async function POST(request: Request) {
     path: "/",
   };
 
-  if (rememberMe) {
-    response.cookies.set(MANAGER_COOKIE, token, {
-      ...cookieOptions,
-      maxAge: EMPLOYEE_REMEMBER_MAX_AGE_SEC,
-    });
-  } else {
-    response.cookies.set(MANAGER_COOKIE, token, cookieOptions);
-  }
+  // Backend oturumu kayan 6 saat ile sınırlar; cookie uzun ömürlü tutulur.
+  response.cookies.set(MANAGER_COOKIE, token, {
+    ...cookieOptions,
+    maxAge: EMPLOYEE_REMEMBER_MAX_AGE_SEC,
+  });
 
   return response;
 }

@@ -6,6 +6,7 @@ import {
   IconSettings,
   IconStock,
   IconUsers,
+  IconWallet,
 } from "@/components/admin/AdminIcons";
 
 export type AdminNavItem = {
@@ -40,6 +41,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
     shortLabel: "Sepet",
     description: "Mağaza sepet siparişleri",
     icon: IconCart,
+    exact: false,
+  },
+  {
+    href: "/admin/giderler",
+    label: "Giderler",
+    shortLabel: "Gider",
+    description: "Gider defteri, kategoriler ve ödeyen kişiler",
+    icon: IconWallet,
     exact: false,
   },
   {

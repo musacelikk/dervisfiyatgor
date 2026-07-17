@@ -236,6 +236,30 @@ export function initSqliteDatabase(): void {
     CREATE INDEX IF NOT EXISTS idx_products_name_norm ON products(name_norm);
     CREATE INDEX IF NOT EXISTS idx_products_stock_code_norm ON products(stock_code_norm);
     CREATE INDEX IF NOT EXISTS idx_products_barcode_norm ON products(barcode_norm);
+    CREATE TABLE IF NOT EXISTS expense_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      color TEXT,
+      icon TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS expense_people (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      color TEXT,
+      icon TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS expenses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      description TEXT,
+      amount REAL,
+      category_id INTEGER REFERENCES expense_categories(id) ON DELETE SET NULL,
+      person_id INTEGER REFERENCES expense_people(id) ON DELETE SET NULL,
+      paid_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses(created_at DESC);
   `);
 }
 

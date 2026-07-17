@@ -20,5 +20,8 @@ export function writeEmployeeRememberPref(remember: boolean): void {
   }
 }
 
-/** Cookie maxAge (saniye) — beni hatırla açıkken 1 gün. */
-export const EMPLOYEE_REMEMBER_MAX_AGE_SEC = 60 * 60 * 24;
+/**
+ * Cookie maxAge (saniye). Oturumun gerçek süresi backend'de kayan 6 saattir;
+ * cookie daha uzun tutulur ki aktif kullanımda oturum kesilmesin.
+ */
+export const EMPLOYEE_REMEMBER_MAX_AGE_SEC = 60 * 60 * 24 * 30;

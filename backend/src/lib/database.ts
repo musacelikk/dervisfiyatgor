@@ -143,6 +143,34 @@ async function migratePostgres(): Promise<void> {
       stock_code TEXT PRIMARY KEY,
       status TEXT NOT NULL CHECK (status IN ('updated', 'unchanged'))
     );
+
+    CREATE TABLE IF NOT EXISTS expense_categories (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      color TEXT,
+      icon TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS expense_people (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      color TEXT,
+      icon TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS expenses (
+      id SERIAL PRIMARY KEY,
+      description TEXT,
+      amount DOUBLE PRECISION,
+      category_id INTEGER REFERENCES expense_categories(id) ON DELETE SET NULL,
+      person_id INTEGER REFERENCES expense_people(id) ON DELETE SET NULL,
+      paid_at TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses(created_at DESC);
   `);
 }
 
