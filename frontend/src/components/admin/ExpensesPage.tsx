@@ -30,6 +30,24 @@ import { IconEdit, IconTrash } from "./AdminIcons";
 
 type NamedItem = ExpenseCategory | ExpensePerson;
 type ManagerKind = "category" | "person";
+type TimeRange = "all" | "today" | "week" | "month" | "lastMonth" | "year";
+type SortKey = "date-desc" | "date-asc" | "amount-desc" | "amount-asc";
+
+const TIME_RANGE_OPTIONS: { id: TimeRange; label: string }[] = [
+  { id: "all", label: "Tüm zamanlar" },
+  { id: "today", label: "Bugün" },
+  { id: "week", label: "Son 7 gün" },
+  { id: "month", label: "Bu ay" },
+  { id: "lastMonth", label: "Geçen ay" },
+  { id: "year", label: "Bu yıl" },
+];
+
+const SORT_OPTIONS: { id: SortKey; label: string }[] = [
+  { id: "date-desc", label: "Tarih (yeni → eski)" },
+  { id: "date-asc", label: "Tarih (eski → yeni)" },
+  { id: "amount-desc", label: "Tutar (yüksek → düşük)" },
+  { id: "amount-asc", label: "Tutar (düşük → yüksek)" },
+];
 
 type ExpenseFormState = {
   description: string;
@@ -163,46 +181,115 @@ function IconPicker({
   );
 }
 
-function ChipSelect({
+/**
+ * Aşağı doğru açılan seçim kutusu. Panel akış içinde açıldığı için
+ * modal içinde de kesilmeden, mobilde de rahat kullanılır.
+ */
+function ItemSelect({
   items,
   value,
   onChange,
-  emptyText,
+  placeholder,
+  clearLabel = "Seçim yok",
   onManage,
 }: {
   items: NamedItem[];
   value: number | null;
   onChange: (id: number | null) => void;
-  emptyText: string;
-  onManage: () => void;
+  placeholder: string;
+  clearLabel?: string;
+  onManage?: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const selected = value != null ? items.find((item) => item.id === value) : undefined;
+
+  const pick = (id: number | null) => {
+    onChange(id);
+    setOpen(false);
+  };
+
   return (
-    <div className="expense-chip-row">
-      {items.length === 0 && <span className="text-xs text-zinc-500">{emptyText}</span>}
-      {items.map((item) => {
-        const active = value === item.id;
-        const color = item.color || DEFAULT_EXPENSE_COLOR;
-        return (
-          <button
-            key={item.id}
-            type="button"
-            aria-pressed={active}
-            className={`expense-chip ${active ? "expense-chip-active" : ""}`}
-            style={
-              active
-                ? { backgroundColor: `${color}1a`, borderColor: color, color }
-                : undefined
-            }
-            onClick={() => onChange(active ? null : item.id)}
-          >
-            <ExpenseIcon icon={item.icon} className="h-4 w-4" />
-            <span>{item.name}</span>
-          </button>
-        );
-      })}
-      <button type="button" className="expense-chip expense-chip-add" onClick={onManage}>
-        + Yeni
+    <div className="expense-select">
+      <button
+        type="button"
+        className="expense-select-btn"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {selected ? (
+          <ItemBadge item={selected} size="sm" />
+        ) : (
+          <span className="text-sm text-zinc-500">{placeholder}</span>
+        )}
+        <svg
+          className={`expense-select-chevron ${open ? "expense-select-chevron-open" : ""}`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          aria-hidden
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+        </svg>
       </button>
+
+      {open && (
+        <div className="expense-select-panel" role="listbox">
+          <button
+            type="button"
+            className={`expense-select-option ${value == null ? "expense-select-option-active" : ""}`}
+            onClick={() => pick(null)}
+          >
+            <span className="text-zinc-500">{clearLabel}</span>
+          </button>
+          {items.map((item) => {
+            const active = value === item.id;
+            const color = item.color || DEFAULT_EXPENSE_COLOR;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="option"
+                aria-selected={active}
+                className={`expense-select-option ${active ? "expense-select-option-active" : ""}`}
+                onClick={() => pick(item.id)}
+              >
+                <span
+                  className="expense-select-option-icon"
+                  style={{ backgroundColor: `${color}1a`, color }}
+                >
+                  <ExpenseIcon icon={item.icon} className="h-4 w-4" />
+                </span>
+                <span className="expense-select-option-name">{item.name}</span>
+                {active && (
+                  <svg
+                    className="ml-auto h-4 w-4 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    aria-hidden
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+          {onManage && (
+            <button
+              type="button"
+              className="expense-select-option expense-select-manage"
+              onClick={() => {
+                setOpen(false);
+                onManage();
+              }}
+            >
+              + Yeni ekle / düzenle
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -226,6 +313,12 @@ export default function ExpensesPage() {
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Filtre ve sıralama
+  const [filterCategoryId, setFilterCategoryId] = useState<number | null>(null);
+  const [filterPersonId, setFilterPersonId] = useState<number | null>(null);
+  const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("date-desc");
 
   // Kategori / kişi yönetimi
   const [manager, setManager] = useState<ManagerKind | null>(null);
@@ -279,6 +372,72 @@ export default function ExpensesPage() {
       return date.startsWith(prefix) ? sum + (e.amount ?? 0) : sum;
     }, 0);
   }, [expenses]);
+
+  const filtersActive =
+    filterCategoryId != null ||
+    filterPersonId != null ||
+    timeRange !== "all" ||
+    sortKey !== "date-desc";
+
+  const clearFilters = () => {
+    setFilterCategoryId(null);
+    setFilterPersonId(null);
+    setTimeRange("all");
+    setSortKey("date-desc");
+  };
+
+  const visibleExpenses = useMemo(() => {
+    const today = todayISO();
+    const expenseDate = (e: Expense) => e.paidAt ?? e.createdAt.slice(0, 10);
+
+    let minDate: string | null = null;
+    let prefix: string | null = null;
+    if (timeRange === "today") {
+      minDate = today;
+    } else if (timeRange === "week") {
+      const d = new Date();
+      d.setDate(d.getDate() - 6);
+      minDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    } else if (timeRange === "month") {
+      prefix = today.slice(0, 7);
+    } else if (timeRange === "lastMonth") {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      prefix = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    } else if (timeRange === "year") {
+      prefix = today.slice(0, 4);
+    }
+
+    const filtered = expenses.filter((e) => {
+      if (filterCategoryId != null && e.categoryId !== filterCategoryId) return false;
+      if (filterPersonId != null && e.personId !== filterPersonId) return false;
+      const date = expenseDate(e);
+      if (timeRange === "today" && date !== today) return false;
+      if (minDate && timeRange === "week" && (date < minDate || date > today)) return false;
+      if (prefix && !date.startsWith(prefix)) return false;
+      return true;
+    });
+
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      switch (sortKey) {
+        case "date-asc":
+          return expenseDate(a).localeCompare(expenseDate(b)) || a.id - b.id;
+        case "amount-desc":
+          return (b.amount ?? -Infinity) - (a.amount ?? -Infinity) || b.id - a.id;
+        case "amount-asc":
+          return (a.amount ?? Infinity) - (b.amount ?? Infinity) || a.id - b.id;
+        default:
+          return expenseDate(b).localeCompare(expenseDate(a)) || b.id - a.id;
+      }
+    });
+    return sorted;
+  }, [expenses, filterCategoryId, filterPersonId, timeRange, sortKey]);
+
+  const visibleTotal = useMemo(
+    () => visibleExpenses.reduce((sum, e) => sum + (e.amount ?? 0), 0),
+    [visibleExpenses]
+  );
 
   // ——— Gider formu ———
 
@@ -466,6 +625,71 @@ export default function ExpensesPage() {
         </div>
       </div>
 
+      {!loading && expenses.length > 0 && (
+        <div className="admin-card expense-filterbar mt-4">
+          <div className="expense-filter-grid">
+            <div>
+              <label className="admin-label">Kategori</label>
+              <ItemSelect
+                items={categories}
+                value={filterCategoryId}
+                onChange={setFilterCategoryId}
+                placeholder="Tüm kategoriler"
+                clearLabel="Tüm kategoriler"
+              />
+            </div>
+            <div>
+              <label className="admin-label">Ödeyen</label>
+              <ItemSelect
+                items={people}
+                value={filterPersonId}
+                onChange={setFilterPersonId}
+                placeholder="Herkes"
+                clearLabel="Herkes"
+              />
+            </div>
+            <div>
+              <label className="admin-label">Zaman</label>
+              <select
+                className="admin-input expense-filter-select"
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value as TimeRange)}
+              >
+                {TIME_RANGE_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="admin-label">Sıralama</label>
+              <select
+                className="admin-input expense-filter-select"
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {filtersActive && (
+            <div className="expense-filter-result">
+              <span>
+                {visibleExpenses.length} kayıt · {currencyFmt.format(visibleTotal)}
+              </span>
+              <button type="button" className="admin-link font-semibold" onClick={clearFilters}>
+                Filtreleri temizle
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <p className="mt-8 text-center text-sm text-zinc-500">Yükleniyor…</p>
       ) : expenses.length === 0 ? (
@@ -473,6 +697,13 @@ export default function ExpensesPage() {
           <p className="text-sm text-zinc-600">Henüz gider kaydı yok.</p>
           <button type="button" onClick={openCreate} className="admin-link mt-3 text-sm font-semibold">
             İlk gideri ekle
+          </button>
+        </div>
+      ) : visibleExpenses.length === 0 ? (
+        <div className="admin-card mt-6 text-center">
+          <p className="text-sm text-zinc-600">Filtrelere uyan gider bulunamadı.</p>
+          <button type="button" onClick={clearFilters} className="admin-link mt-3 text-sm font-semibold">
+            Filtreleri temizle
           </button>
         </div>
       ) : (
@@ -490,7 +721,7 @@ export default function ExpensesPage() {
                 </tr>
               </thead>
               <tbody>
-                {expenses.map((expense) => (
+                {visibleExpenses.map((expense) => (
                   <tr key={expense.id}>
                     <td className="whitespace-nowrap text-xs text-zinc-600">
                       {formatDate(expense.paidAt ?? expense.createdAt.slice(0, 10))}
@@ -524,7 +755,7 @@ export default function ExpensesPage() {
           </div>
 
           <div className="mt-4 space-y-3 lg:hidden">
-            {expenses.map((expense) => (
+            {visibleExpenses.map((expense) => (
               <div key={expense.id} className="admin-card expense-card">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -593,21 +824,21 @@ export default function ExpensesPage() {
               </div>
               <div>
                 <label className="admin-label">Kategori</label>
-                <ChipSelect
+                <ItemSelect
                   items={categories}
                   value={form.categoryId}
                   onChange={(categoryId) => setForm((f) => ({ ...f, categoryId }))}
-                  emptyText="Henüz kategori yok."
+                  placeholder="Kategori seçin (isteğe bağlı)"
                   onManage={() => openManager("category")}
                 />
               </div>
               <div>
                 <label className="admin-label">Ödeyen kişi</label>
-                <ChipSelect
+                <ItemSelect
                   items={people}
                   value={form.personId}
                   onChange={(personId) => setForm((f) => ({ ...f, personId }))}
-                  emptyText="Henüz kişi yok."
+                  placeholder="Kişi seçin (isteğe bağlı)"
                   onManage={() => openManager("person")}
                 />
               </div>

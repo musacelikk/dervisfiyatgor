@@ -2565,39 +2565,144 @@ textarea {
   white-space: nowrap;
 }
 
-.expense-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
+/* Aşağı açılan seçim kutusu (kategori / kişi) */
+.expense-select {
   margin-top: 0.5rem;
 }
 
-.expense-chip {
-  display: inline-flex;
+.expense-select-btn {
+  display: flex;
+  width: 100%;
   align-items: center;
-  gap: 0.375rem;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.75rem;
   border: 1.5px solid #e4e4e7;
-  border-radius: 9999px;
+  border-radius: 0.625rem;
   background: #fff;
   padding: 0.4rem 0.75rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #3f3f46;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.expense-chip:hover {
+.expense-select-btn:hover {
   border-color: #a1a1aa;
 }
 
-.expense-chip-active {
+.expense-select-btn[aria-expanded="true"] {
+  border-color: #18181b;
+  box-shadow: 0 0 0 3px rgb(24 24 27 / 0.08);
+}
+
+.expense-select-chevron {
+  height: 1.1rem;
+  width: 1.1rem;
+  flex-shrink: 0;
+  color: #71717a;
+  transition: transform 0.15s ease;
+}
+
+.expense-select-chevron-open {
+  transform: rotate(180deg);
+}
+
+.expense-select-panel {
+  margin-top: 0.375rem;
+  max-height: 15rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.08);
+  padding: 0.25rem;
+}
+
+.expense-select-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.625rem;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.625rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #27272a;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.expense-select-option:hover {
+  background: #f4f4f5;
+}
+
+.expense-select-option-active {
+  background: #fafafa;
   font-weight: 700;
 }
 
-.expense-chip-add {
-  border-style: dashed;
+.expense-select-option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+}
+
+.expense-select-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-select-manage {
+  margin-top: 0.125rem;
+  border-top: 1px solid #f4f4f5;
+  border-radius: 0 0 0.5rem 0.5rem;
   color: #71717a;
+  font-weight: 600;
+}
+
+/* Filtre ve sıralama çubuğu */
+.expense-filterbar {
+  padding: 0.875rem 1rem 1rem;
+}
+
+.expense-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.625rem 0.75rem;
+}
+
+.expense-filter-grid .expense-select {
+  margin-top: 0.375rem;
+}
+
+.expense-filter-select {
+  margin-top: 0.375rem;
+  min-height: 2.75rem;
+}
+
+.expense-filter-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid #f4f4f5;
+  padding-top: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #3f3f46;
+}
+
+@media (min-width: 1024px) {
+  .expense-filter-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .expense-color-grid {
