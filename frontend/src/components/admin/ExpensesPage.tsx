@@ -30,7 +30,15 @@ import { IconEdit, IconTrash } from "./AdminIcons";
 
 type NamedItem = ExpenseCategory | ExpensePerson;
 type ManagerKind = "category" | "person";
-type TimeRange = "all" | "today" | "week" | "month" | "lastMonth" | "year";
+type TimeRange =
+  | "all"
+  | "today"
+  | "week"
+  | "month"
+  | "lastMonth"
+  | "year"
+  | "pickMonth"
+  | "custom";
 type SortKey = "date-desc" | "date-asc" | "amount-desc" | "amount-asc";
 
 const TIME_RANGE_OPTIONS: { id: TimeRange; label: string }[] = [
@@ -39,8 +47,40 @@ const TIME_RANGE_OPTIONS: { id: TimeRange; label: string }[] = [
   { id: "week", label: "Son 7 gün" },
   { id: "month", label: "Bu ay" },
   { id: "lastMonth", label: "Geçen ay" },
+  { id: "pickMonth", label: "Ay seç" },
+  { id: "custom", label: "Özel aralık" },
   { id: "year", label: "Bu yıl" },
 ];
+
+const MONTH_LABELS = [
+  "Ocak",
+  "Şubat",
+  "Mart",
+  "Nisan",
+  "Mayıs",
+  "Haziran",
+  "Temmuz",
+  "Ağustos",
+  "Eylül",
+  "Ekim",
+  "Kasım",
+  "Aralık",
+];
+
+function formatMonthLabel(ym: string): string {
+  const [y, m] = ym.split("-");
+  const monthIndex = Number(m) - 1;
+  if (!y || !Number.isFinite(monthIndex) || monthIndex < 0 || monthIndex > 11) return ym;
+  return `${MONTH_LABELS[monthIndex]} ${y}`;
+}
+
+function currentMonthISO(): string {
+  return todayISO().slice(0, 7);
+}
+
+function expenseDateOf(e: Expense): string {
+  return e.paidAt ?? e.createdAt.slice(0, 10);
+}
 
 const SORT_OPTIONS: { id: SortKey; label: string }[] = [
   { id: "date-desc", label: "Tarih (yeni → eski)" },
@@ -48,6 +88,9 @@ const SORT_OPTIONS: { id: SortKey; label: string }[] = [
   { id: "amount-desc", label: "Tutar (yüksek → düşük)" },
   { id: "amount-asc", label: "Tutar (düşük → yüksek)" },
 ];
+
+/** Filtrede "kategorisiz" seçimi için özel id (gerçek kategori id'leri pozitif) */
+const UNCATEGORIZED_FILTER = -1;
 
 type ExpenseFormState = {
   description: string;
@@ -318,6 +361,9 @@ export default function ExpensesPage() {
   const [filterCategoryId, setFilterCategoryId] = useState<number | null>(null);
   const [filterPersonId, setFilterPersonId] = useState<number | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthISO);
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
 
   // Kategori / kişi yönetimi
@@ -383,12 +429,14 @@ export default function ExpensesPage() {
     setFilterCategoryId(null);
     setFilterPersonId(null);
     setTimeRange("all");
+    setSelectedMonth(currentMonthISO());
+    setCustomFrom("");
+    setCustomTo("");
     setSortKey("date-desc");
   };
 
-  const visibleExpenses = useMemo(() => {
+  const periodExpenses = useMemo(() => {
     const today = todayISO();
-    const expenseDate = (e: Expense) => e.paidAt ?? e.createdAt.slice(0, 10);
 
     let minDate: string | null = null;
     let prefix: string | null = null;
@@ -404,17 +452,34 @@ export default function ExpensesPage() {
       const d = new Date();
       d.setMonth(d.getMonth() - 1);
       prefix = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    } else if (timeRange === "pickMonth") {
+      prefix = selectedMonth || null;
     } else if (timeRange === "year") {
       prefix = today.slice(0, 4);
     }
 
-    const filtered = expenses.filter((e) => {
-      if (filterCategoryId != null && e.categoryId !== filterCategoryId) return false;
+    const rangeFrom = timeRange === "custom" && customFrom ? customFrom : null;
+    const rangeTo = timeRange === "custom" && customTo ? customTo : null;
+
+    return expenses.filter((e) => {
       if (filterPersonId != null && e.personId !== filterPersonId) return false;
-      const date = expenseDate(e);
+      const date = expenseDateOf(e);
       if (timeRange === "today" && date !== today) return false;
       if (minDate && timeRange === "week" && (date < minDate || date > today)) return false;
       if (prefix && !date.startsWith(prefix)) return false;
+      if (rangeFrom && date < rangeFrom) return false;
+      if (rangeTo && date > rangeTo) return false;
+      return true;
+    });
+  }, [expenses, filterPersonId, timeRange, selectedMonth, customFrom, customTo]);
+
+  const visibleExpenses = useMemo(() => {
+    const filtered = periodExpenses.filter((e) => {
+      if (filterCategoryId === UNCATEGORIZED_FILTER) {
+        if (e.categoryId != null) return false;
+      } else if (filterCategoryId != null && e.categoryId !== filterCategoryId) {
+        return false;
+      }
       return true;
     });
 
@@ -422,22 +487,72 @@ export default function ExpensesPage() {
     sorted.sort((a, b) => {
       switch (sortKey) {
         case "date-asc":
-          return expenseDate(a).localeCompare(expenseDate(b)) || a.id - b.id;
+          return expenseDateOf(a).localeCompare(expenseDateOf(b)) || a.id - b.id;
         case "amount-desc":
           return (b.amount ?? -Infinity) - (a.amount ?? -Infinity) || b.id - a.id;
         case "amount-asc":
           return (a.amount ?? Infinity) - (b.amount ?? Infinity) || a.id - b.id;
         default:
-          return expenseDate(b).localeCompare(expenseDate(a)) || b.id - a.id;
+          return expenseDateOf(b).localeCompare(expenseDateOf(a)) || b.id - a.id;
       }
     });
     return sorted;
-  }, [expenses, filterCategoryId, filterPersonId, timeRange, sortKey]);
+  }, [periodExpenses, filterCategoryId, sortKey]);
 
   const visibleTotal = useMemo(
     () => visibleExpenses.reduce((sum, e) => sum + (e.amount ?? 0), 0),
     [visibleExpenses]
   );
+
+  const periodTotal = useMemo(
+    () => periodExpenses.reduce((sum, e) => sum + (e.amount ?? 0), 0),
+    [periodExpenses]
+  );
+
+  const categoryBreakdown = useMemo(() => {
+    const totals = new Map<number | null, { total: number; count: number }>();
+    for (const expense of periodExpenses) {
+      const key = expense.categoryId;
+      const prev = totals.get(key) ?? { total: 0, count: 0 };
+      totals.set(key, {
+        total: prev.total + (expense.amount ?? 0),
+        count: prev.count + 1,
+      });
+    }
+
+    return [...totals.entries()]
+      .map(([categoryId, stats]) => ({
+        categoryId,
+        category: categoryId != null ? categoryById.get(categoryId) : undefined,
+        ...stats,
+      }))
+      .sort((a, b) => b.total - a.total || b.count - a.count);
+  }, [periodExpenses, categoryById]);
+
+  const periodLabel = useMemo(() => {
+    switch (timeRange) {
+      case "today":
+        return "Bugün";
+      case "week":
+        return "Son 7 gün";
+      case "month":
+        return "Bu ay";
+      case "lastMonth":
+        return "Geçen ay";
+      case "pickMonth":
+        return selectedMonth ? formatMonthLabel(selectedMonth) : "Seçilen ay";
+      case "custom": {
+        if (customFrom && customTo) return `${formatDate(customFrom)} – ${formatDate(customTo)}`;
+        if (customFrom) return `${formatDate(customFrom)} sonrası`;
+        if (customTo) return `${formatDate(customTo)} öncesi`;
+        return "Özel aralık";
+      }
+      case "year":
+        return "Bu yıl";
+      default:
+        return "Tüm zamanlar";
+    }
+  }, [timeRange, selectedMonth, customFrom, customTo]);
 
   // ——— Gider formu ———
 
@@ -632,7 +747,7 @@ export default function ExpensesPage() {
               <label className="admin-label">Kategori</label>
               <ItemSelect
                 items={categories}
-                value={filterCategoryId}
+                value={filterCategoryId != null && filterCategoryId > 0 ? filterCategoryId : null}
                 onChange={setFilterCategoryId}
                 placeholder="Tüm kategoriler"
                 clearLabel="Tüm kategoriler"
@@ -677,16 +792,118 @@ export default function ExpensesPage() {
               </select>
             </div>
           </div>
-          {filtersActive && (
-            <div className="expense-filter-result">
-              <span>
-                {visibleExpenses.length} kayıt · {currencyFmt.format(visibleTotal)}
-              </span>
+
+          {timeRange === "pickMonth" && (
+            <div className="expense-filter-extra">
+              <div>
+                <label className="admin-label">Ay</label>
+                <input
+                  type="month"
+                  className="admin-input expense-filter-select"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value || currentMonthISO())}
+                />
+              </div>
+            </div>
+          )}
+
+          {timeRange === "custom" && (
+            <div className="expense-filter-extra expense-filter-range">
+              <div>
+                <label className="admin-label">Başlangıç</label>
+                <input
+                  type="date"
+                  className="admin-input expense-filter-select"
+                  value={customFrom}
+                  max={customTo || undefined}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="admin-label">Bitiş</label>
+                <input
+                  type="date"
+                  className="admin-input expense-filter-select"
+                  value={customTo}
+                  min={customFrom || undefined}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="expense-filter-result">
+            <span>
+              {periodLabel}: {periodExpenses.length} kayıt · {currencyFmt.format(periodTotal)}
+              {filterCategoryId != null && (
+                <>
+                  {" "}
+                  · listede {visibleExpenses.length} / {currencyFmt.format(visibleTotal)}
+                </>
+              )}
+            </span>
+            {filtersActive && (
               <button type="button" className="admin-link font-semibold" onClick={clearFilters}>
                 Filtreleri temizle
               </button>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
+      )}
+
+      {!loading && periodExpenses.length > 0 && categoryBreakdown.length > 0 && (
+        <div className="admin-card expense-breakdown mt-4">
+          <div className="expense-breakdown-head">
+            <p className="expense-summary-label">Kategori harcamaları</p>
+            <p className="expense-breakdown-period">{periodLabel}</p>
+          </div>
+          <div className="expense-breakdown-list">
+            {categoryBreakdown.map((row) => {
+              const share = periodTotal > 0 ? (row.total / periodTotal) * 100 : 0;
+              const color = row.category?.color || DEFAULT_EXPENSE_COLOR;
+              const rowFilterId = row.categoryId ?? UNCATEGORIZED_FILTER;
+              const active = filterCategoryId === rowFilterId;
+              return (
+                <button
+                  key={row.categoryId ?? "none"}
+                  type="button"
+                  className={`expense-breakdown-row ${active ? "expense-breakdown-row-active" : ""}`}
+                  onClick={() =>
+                    setFilterCategoryId(active ? null : rowFilterId)
+                  }
+                  title={
+                    row.category
+                      ? `${row.category.name} filtresini ${active ? "kaldır" : "uygula"}`
+                      : `Kategorisiz filtresini ${active ? "kaldır" : "uygula"}`
+                  }
+                >
+                  <div className="expense-breakdown-meta">
+                    {row.category ? (
+                      <ItemBadge item={row.category} size="sm" />
+                    ) : (
+                      <span className="expense-badge expense-badge-sm expense-breakdown-uncat">
+                        Kategorisiz
+                      </span>
+                    )}
+                    <span className="expense-breakdown-count">{row.count} kayıt</span>
+                  </div>
+                  <div className="expense-breakdown-amounts">
+                    <span className="expense-breakdown-total">{currencyFmt.format(row.total)}</span>
+                    <span className="expense-breakdown-share">{share.toFixed(0)}%</span>
+                  </div>
+                  <div className="expense-breakdown-bar" aria-hidden>
+                    <span
+                      className="expense-breakdown-bar-fill"
+                      style={{
+                        width: `${Math.max(share, share > 0 ? 2 : 0)}%`,
+                        backgroundColor: color,
+                      }}
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

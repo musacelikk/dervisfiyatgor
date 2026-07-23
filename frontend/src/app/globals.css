@@ -2699,9 +2699,131 @@ textarea {
   color: #3f3f46;
 }
 
+.expense-filter-extra {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.625rem 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.expense-filter-range {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.expense-breakdown {
+  padding: 0.875rem 1rem 1rem;
+}
+
+.expense-breakdown-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.expense-breakdown-period {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #71717a;
+}
+
+.expense-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.expense-breakdown-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 0.35rem 0.75rem;
+  width: 100%;
+  border: 1px solid #f4f4f5;
+  border-radius: 0.75rem;
+  background: #fafafa;
+  padding: 0.625rem 0.75rem 0.7rem;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.expense-breakdown-row:hover {
+  border-color: #d4d4d8;
+  background: #fff;
+}
+
+.expense-breakdown-row-active {
+  border-color: #18181b;
+  background: #fff;
+  box-shadow: 0 0 0 1px #18181b inset;
+}
+
+.expense-breakdown-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.expense-breakdown-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #a1a1aa;
+}
+
+.expense-breakdown-amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+}
+
+.expense-breakdown-total {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.expense-breakdown-share {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #71717a;
+}
+
+.expense-breakdown-bar {
+  grid-column: 1 / -1;
+  height: 0.35rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: #e4e4e7;
+}
+
+.expense-breakdown-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.2s ease;
+}
+
+.expense-breakdown-uncat {
+  background: #f4f4f5;
+  color: #71717a;
+}
+
 @media (min-width: 1024px) {
   .expense-filter-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .expense-filter-extra {
+    grid-template-columns: minmax(12rem, 16rem);
+  }
+
+  .expense-filter-range {
+    grid-template-columns: repeat(2, minmax(12rem, 16rem));
   }
 }
 
