@@ -182,6 +182,31 @@ async function migratePostgres(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_product_images_stock_code
       ON product_images(stock_code, sort_order, id);
+
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS shift_code TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS honorific TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_shift_code
+      ON employees(shift_code) WHERE shift_code IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS shift_tokens (
+      token TEXT PRIMARY KEY,
+      employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS shift_entries (
+      id SERIAL PRIMARY KEY,
+      employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      work_date TEXT NOT NULL,
+      check_in_at TIMESTAMPTZ NOT NULL,
+      check_out_at TIMESTAMPTZ,
+      lat DOUBLE PRECISION,
+      lng DOUBLE PRECISION,
+      distance_m DOUBLE PRECISION,
+      UNIQUE (employee_id, work_date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_shift_entries_date ON shift_entries(work_date DESC);
   `);
 }
 

@@ -24,6 +24,12 @@ export function getSalesHost(): string | undefined {
   return v || undefined;
 }
 
+/** giris.dervisplastik.com — personel mesai başlatma ekranı (dükkan konumu) */
+export function getShiftHost(): string | undefined {
+  const v = process.env.NEXT_PUBLIC_SHIFT_HOST?.trim().toLowerCase();
+  return v || undefined;
+}
+
 /** fiyatgor subdomain — müşteri mağazası */
 export const STORE_PATH = "/";
 
@@ -40,6 +46,9 @@ export const EMPLOYEE_ENTRY_PATH = EMPLOYEE_NAV[0].href;
 /** satış kataloğu */
 export const SALES_PATH = "/satis";
 
+/** mesai giriş ekranı */
+export const SHIFT_PATH = "/giris";
+
 export function isAdminPanelPath(pathname: string): boolean {
   return pathname === ADMIN_PATH || pathname.startsWith(`${ADMIN_PATH}/`);
 }
@@ -50,6 +59,10 @@ export function isEmployeePanelPath(pathname: string): boolean {
 
 export function isSalesPath(pathname: string): boolean {
   return pathname === SALES_PATH || pathname.startsWith(`${SALES_PATH}/`);
+}
+
+export function isShiftPath(pathname: string): boolean {
+  return pathname === SHIFT_PATH || pathname.startsWith(`${SHIFT_PATH}/`);
 }
 
 export function normalizeHost(host: string | null | undefined): string {
@@ -80,6 +93,11 @@ export function isSalesHost(host: string): boolean {
   return sales ? normalizeHost(host) === sales : false;
 }
 
+export function isShiftHost(host: string): boolean {
+  const shift = getShiftHost();
+  return shift ? normalizeHost(host) === shift : false;
+}
+
 export function externalUrl(host: string | undefined, path: string): string {
   if (!host) return path;
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -94,6 +112,10 @@ export function getSalesUrl(path = SALES_PATH): string {
   return externalUrl(getSalesHost(), path);
 }
 
+export function getShiftUrl(path = SHIFT_PATH): string {
+  return externalUrl(getShiftHost(), path);
+}
+
 /** Client: mağaza linki yalnızca ayrı subdomain yokken gösterilir. */
 export function shouldShowStoreLink(currentHost?: string): boolean {
   if (!getStoreHost()) return true;
@@ -101,6 +123,7 @@ export function shouldShowStoreLink(currentHost?: string): boolean {
   return (
     !isAdminHost(currentHost) &&
     !isEmployeeHost(currentHost) &&
-    !isSalesHost(currentHost)
+    !isSalesHost(currentHost) &&
+    !isShiftHost(currentHost)
   );
 }

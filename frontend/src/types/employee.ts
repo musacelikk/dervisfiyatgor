@@ -1,4 +1,5 @@
 import type { PermissionId } from "@/lib/permissions";
+import type { ShiftHonorific } from "./shift";
 
 export interface Employee {
   id: number;
@@ -6,6 +7,8 @@ export interface Employee {
   username: string;
   active: boolean;
   permissions: PermissionId[];
+  shiftCode: string | null;
+  honorific: ShiftHonorific;
   createdAt: string;
   updatedAt: string;
 }

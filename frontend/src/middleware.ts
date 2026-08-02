@@ -5,14 +5,17 @@ import {
   ADMIN_LOGIN_PATH,
   EMPLOYEE_LOGIN_PATH,
   SALES_PATH,
+  SHIFT_PATH,
   getAdminHost,
   getEmployeeHost,
   getSalesHost,
+  getShiftHost,
   getStoreHost,
   hostsConfigured,
   isAdminPanelPath,
   isEmployeePanelPath,
   isSalesPath,
+  isShiftPath,
   normalizeHost,
 } from "@/lib/domains";
 import { MANAGER_COOKIE, isValidManagerToken } from "@/lib/manager-session";
@@ -42,9 +45,10 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
   const adminHost = getAdminHost();
   const employeeHost = getEmployeeHost();
   const salesHost = getSalesHost();
+  const shiftHost = getShiftHost();
   const { pathname } = request.nextUrl;
 
-  if (!storeHost && !adminHost && !employeeHost && !salesHost) {
+  if (!storeHost && !adminHost && !employeeHost && !salesHost && !shiftHost) {
     return null;
   }
 
@@ -52,15 +56,18 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
     return null;
   }
 
+  const isOtherFrontHost = (h: string) =>
+    (storeHost && h === storeHost) || (salesHost && h === salesHost) || (shiftHost && h === shiftHost);
+
   if (hostsConfigured()) {
     if (isAdminPanelPath(pathname) && adminHost && host !== adminHost) {
-      if ((storeHost && host === storeHost) || (salesHost && host === salesHost)) {
+      if (isOtherFrontHost(host)) {
         return NextResponse.redirect(new URL("/", request.url));
       }
       return redirectToHost(adminHost, request, pathname);
     }
     if (isEmployeePanelPath(pathname) && employeeHost && host !== employeeHost) {
-      if ((storeHost && host === storeHost) || (salesHost && host === salesHost)) {
+      if (isOtherFrontHost(host)) {
         return NextResponse.redirect(new URL("/", request.url));
       }
       return redirectToHost(employeeHost, request, pathname);
@@ -71,11 +78,22 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
       }
       return redirectToHost(salesHost, request, pathname);
     }
+    if (isShiftPath(pathname) && shiftHost && host !== shiftHost) {
+      if (storeHost && host === storeHost) {
+        return NextResponse.redirect(new URL("/", request.url));
+      }
+      return redirectToHost(shiftHost, request, pathname);
+    }
   }
 
   // fiyatgor → yalnızca mağaza (/)
   if (storeHost && host === storeHost) {
-    if (isAdminPanelPath(pathname) || isEmployeePanelPath(pathname) || isSalesPath(pathname)) {
+    if (
+      isAdminPanelPath(pathname) ||
+      isEmployeePanelPath(pathname) ||
+      isSalesPath(pathname) ||
+      isShiftPath(pathname)
+    ) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return null;
@@ -110,6 +128,17 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
     }
     if (!isSalesPath(pathname)) {
       return NextResponse.redirect(new URL(SALES_PATH, request.url));
+    }
+    return null;
+  }
+
+  // mesai girişi → yalnızca /giris
+  if (shiftHost && host === shiftHost) {
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL(SHIFT_PATH, request.url));
+    }
+    if (!isShiftPath(pathname)) {
+      return NextResponse.redirect(new URL(SHIFT_PATH, request.url));
     }
     return null;
   }

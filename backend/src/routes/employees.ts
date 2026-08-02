@@ -5,11 +5,21 @@ import { logAuditFromContext } from "../services/audit";
 import {
   createEmployee,
   deleteEmployee,
+  findEmployeeById,
   listEmployees,
   normalizePermissionsInput,
   updateEmployee,
 } from "../services/employees";
 import { revokeEmployeeSessionsFor } from "../services/sessions";
+import { revokeShiftTokensForEmployee } from "../services/shifts";
+import { normalizeHonorific, randomShiftCode } from "../lib/shiftCode";
+
+function parseShiftCode(body: Record<string, unknown>): string | null | undefined {
+  if (!("shiftCode" in body)) return undefined;
+  const v = body.shiftCode;
+  if (v === null || v === "") return null;
+  return typeof v === "string" ? v.trim() : undefined;
+}
 
 const router = Router();
 
@@ -17,6 +27,20 @@ router.use(requireAdmin);
 
 router.get("/", async (_req, res) => {
   res.json({ employees: await listEmployees() });
+});
+
+/** Admin formunda "otomatik oluştur" için boşta olan 4 haneli bir mesai ID'si üretir. */
+router.get("/shift-code/new", async (_req, res) => {
+  const existing = new Set(
+    (await listEmployees()).map((e) => e.shiftCode).filter((c): c is string => Boolean(c))
+  );
+  let code = randomShiftCode();
+  let attempts = 0;
+  while (existing.has(code) && attempts < 50) {
+    code = randomShiftCode();
+    attempts++;
+  }
+  res.json({ shiftCode: code });
 });
 
 router.post("/", async (req, res) => {
@@ -27,7 +51,16 @@ router.post("/", async (req, res) => {
       return;
     }
     const permissions = normalizePermissionsInput(req.body?.permissions);
-    const employee = await createEmployee({ name, username, password, permissions });
+    const shiftCode = parseShiftCode(req.body ?? {});
+    const honorific = normalizeHonorific(req.body?.honorific);
+    const employee = await createEmployee({
+      name,
+      username,
+      password,
+      permissions,
+      shiftCode,
+      honorific,
+    });
     logAuditFromContext(getAuditContext(req), {
       action: "employee.create",
       resourceType: "employee",
@@ -51,16 +84,26 @@ router.patch("/:id", async (req, res) => {
 
   try {
     const body = req.body ?? {};
+    const before = await findEmployeeById(id);
     const permissions = normalizePermissionsInput(body.permissions);
+    const shiftCode = parseShiftCode(body);
+    const honorific = "honorific" in body ? normalizeHonorific(body.honorific) : undefined;
     const employee = await updateEmployee(id, {
       name: typeof body.name === "string" ? body.name : undefined,
       username: typeof body.username === "string" ? body.username : undefined,
       password: typeof body.password === "string" ? body.password : undefined,
       active: typeof body.active === "boolean" ? body.active : undefined,
       permissions,
+      shiftCode,
+      honorific,
     });
+    const shiftCodeChanged =
+      shiftCode !== undefined && shiftCode !== (before?.shift_code ?? null);
     if (employee.active === false) {
       revokeEmployeeSessionsFor(id);
+    }
+    if (employee.active === false || shiftCodeChanged || body.password !== undefined) {
+      await revokeShiftTokensForEmployee(id);
     }
     logAuditFromContext(getAuditContext(req), {
       action: "employee.update",
@@ -90,6 +133,7 @@ router.delete("/:id", async (req, res) => {
   try {
     await deleteEmployee(id);
     revokeEmployeeSessionsFor(id);
+    await revokeShiftTokensForEmployee(id);
     logAuditFromContext(getAuditContext(req), {
       action: "employee.delete",
       resourceType: "employee",

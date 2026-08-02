@@ -14,7 +14,7 @@ function resolveDataDir(): string {
 
 let sqliteDb: Database.Database | null = null;
 
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 const NAME_SEARCH_LIMIT = 30;
 
 function tableColumns(database: Database.Database, table: string): Set<string> {
@@ -137,6 +137,34 @@ function applyMigrationStep(database: Database.Database, fromVersion: number): v
           ON product_images(stock_code, sort_order, id);
       `);
       return;
+    case 12:
+      addColumnIfMissing(database, "employees", "shift_code", "TEXT");
+      addColumnIfMissing(database, "employees", "honorific", "TEXT");
+      database.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_shift_code
+          ON employees(shift_code) WHERE shift_code IS NOT NULL;
+        CREATE TABLE IF NOT EXISTS shift_tokens (
+          token TEXT PRIMARY KEY,
+          employee_id INTEGER NOT NULL,
+          expires_at TEXT NOT NULL,
+          created_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS shift_entries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          employee_id INTEGER NOT NULL,
+          work_date TEXT NOT NULL,
+          check_in_at TEXT NOT NULL,
+          check_out_at TEXT,
+          lat REAL,
+          lng REAL,
+          distance_m REAL,
+          FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+          UNIQUE (employee_id, work_date)
+        );
+        CREATE INDEX IF NOT EXISTS idx_shift_entries_date ON shift_entries(work_date DESC);
+      `);
+      return;
     default:
       return;
   }
@@ -208,6 +236,8 @@ export function initSqliteDatabase(): void {
       password_hash TEXT NOT NULL,
       active INTEGER NOT NULL DEFAULT 1,
       permissions TEXT NOT NULL DEFAULT '["scan"]',
+      shift_code TEXT,
+      honorific TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -220,6 +250,16 @@ export function initSqliteDatabase(): void {
       `ALTER TABLE employees ADD COLUMN permissions TEXT NOT NULL DEFAULT '["scan"]'`
     );
   }
+  if (!employeeCols.some((c) => c.name === "shift_code")) {
+    sqliteDb.exec(`ALTER TABLE employees ADD COLUMN shift_code TEXT`);
+  }
+  if (!employeeCols.some((c) => c.name === "honorific")) {
+    sqliteDb.exec(`ALTER TABLE employees ADD COLUMN honorific TEXT`);
+  }
+  sqliteDb.exec(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_shift_code
+       ON employees(shift_code) WHERE shift_code IS NOT NULL`
+  );
 
   sqliteDb.exec(`
     CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
@@ -303,6 +343,26 @@ export function initSqliteDatabase(): void {
     );
     CREATE INDEX IF NOT EXISTS idx_product_images_stock_code
       ON product_images(stock_code, sort_order, id);
+    CREATE TABLE IF NOT EXISTS shift_tokens (
+      token TEXT PRIMARY KEY,
+      employee_id INTEGER NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS shift_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      work_date TEXT NOT NULL,
+      check_in_at TEXT NOT NULL,
+      check_out_at TEXT,
+      lat REAL,
+      lng REAL,
+      distance_m REAL,
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+      UNIQUE (employee_id, work_date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_shift_entries_date ON shift_entries(work_date DESC);
   `);
 }
 

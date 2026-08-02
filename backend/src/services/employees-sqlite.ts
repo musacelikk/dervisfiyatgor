@@ -6,10 +6,11 @@ import {
   serializePermissions,
   type PermissionId,
 } from "../lib/permissions";
+import { isValidShiftCode, type Honorific } from "../lib/shiftCode";
 import { rowToEmployee, type EmployeePublic, type EmployeeRow } from "../types/employee";
 
 const selectPublic = `
-  SELECT id, name, username, active, permissions, created_at, updated_at
+  SELECT id, name, username, active, permissions, shift_code, honorific, created_at, updated_at
   FROM employees
 `;
 
@@ -54,15 +55,41 @@ export function findEmployeeById(id: number): EmployeeRow | undefined {
   return getSqliteDb().prepare(`SELECT * FROM employees WHERE id = ?`).get(id) as EmployeeRow | undefined;
 }
 
+export function findEmployeeByShiftCode(code: string): EmployeeRow | undefined {
+  return getSqliteDb()
+    .prepare(`SELECT * FROM employees WHERE shift_code = ? LIMIT 1`)
+    .get(code.trim()) as EmployeeRow | undefined;
+}
+
+function validateShiftCode(
+  shiftCode: string | null | undefined,
+  excludeId?: number
+): string | null | undefined {
+  if (shiftCode === undefined) return undefined;
+  if (shiftCode === null || shiftCode === "") return null;
+  if (!isValidShiftCode(shiftCode)) {
+    throw new Error("Mesai ID'si 4 haneli rakam olmalı.");
+  }
+  const duplicate = findEmployeeByShiftCode(shiftCode);
+  if (duplicate && duplicate.id !== excludeId) {
+    throw new Error("Bu mesai ID'si başka bir personelde kayıtlı.");
+  }
+  return shiftCode;
+}
+
 export function createEmployee(input: {
   name: string;
   username: string;
   password: string;
   permissions?: PermissionId[];
+  shiftCode?: string | null;
+  honorific?: Honorific | null;
 }): EmployeePublic {
   const name = input.name.trim();
   const username = input.username.trim().toLowerCase();
   const permissions = serializePermissions(input.permissions ?? DEFAULT_EMPLOYEE_PERMISSIONS);
+  const shiftCode = validateShiftCode(input.shiftCode) ?? null;
+  const honorific = input.honorific ?? null;
 
   if (name.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
   if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
@@ -75,10 +102,10 @@ export function createEmployee(input: {
 
   const result = getSqliteDb()
     .prepare(
-      `INSERT INTO employees (name, username, password_hash, active, permissions, updated_at)
-       VALUES (?, ?, ?, 1, ?, datetime('now'))`
+      `INSERT INTO employees (name, username, password_hash, active, permissions, shift_code, honorific, updated_at)
+       VALUES (?, ?, ?, 1, ?, ?, ?, datetime('now'))`
     )
-    .run(name, username, hashPassword(input.password), permissions);
+    .run(name, username, hashPassword(input.password), permissions, shiftCode, honorific);
 
   const row = findEmployeeById(Number(result.lastInsertRowid));
   if (!row) throw new Error("Çalışan oluşturulamadı.");
@@ -93,6 +120,8 @@ export function updateEmployee(
     password?: string;
     active?: boolean;
     permissions?: PermissionId[];
+    shiftCode?: string | null;
+    honorific?: Honorific | null;
   }
 ): EmployeePublic {
   const row = findEmployeeById(id);
@@ -104,6 +133,9 @@ export function updateEmployee(
   const active = input.active !== undefined ? (input.active ? 1 : 0) : row.active;
   const permissions =
     input.permissions !== undefined ? serializePermissions(input.permissions) : row.permissions;
+  const shiftCode =
+    input.shiftCode !== undefined ? validateShiftCode(input.shiftCode, id) : row.shift_code;
+  const honorific = input.honorific !== undefined ? input.honorific : row.honorific;
 
   if (name.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
   if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
@@ -124,10 +156,11 @@ export function updateEmployee(
   getSqliteDb()
     .prepare(
       `UPDATE employees
-       SET name = ?, username = ?, password_hash = ?, active = ?, permissions = ?, updated_at = datetime('now')
+       SET name = ?, username = ?, password_hash = ?, active = ?, permissions = ?,
+           shift_code = ?, honorific = ?, updated_at = datetime('now')
        WHERE id = ?`
     )
-    .run(name, username, passwordHash, active, permissions, id);
+    .run(name, username, passwordHash, active, permissions, shiftCode, honorific, id);
 
   const updated = findEmployeeById(id);
   if (!updated) throw new Error("Çalışan güncellenemedi.");

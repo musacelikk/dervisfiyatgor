@@ -28,8 +28,11 @@ import adminExpensesRouter from "./routes/adminExpenses";
 import productImagesRouter from "./routes/productImages";
 import stockCountRouter from "./routes/stockCount";
 import ordersRouter from "./routes/orders";
+import shiftRouter from "./routes/shift";
+import adminShiftsRouter from "./routes/adminShifts";
 import { initDatabase, isPostgres } from "./lib/database";
 import { scheduleProductNormBackfill } from "./lib/backfillProductNorms";
+import { closeExpiredShiftEntries } from "./services/shifts";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
@@ -57,6 +60,8 @@ app.use("/api/admin/product-images", productImagesRouter);
 app.use("/api/admin/stock-count", stockCountRouter);
 app.use("/api/auth/employee", employeeAuthRouter);
 app.use("/api/auth/admin", adminAuthRouter);
+app.use("/api/shift", shiftRouter);
+app.use("/api/admin/shifts", adminShiftsRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Endpoint bulunamadı." });
@@ -85,6 +90,14 @@ if (!isVercel) {
           `API http://localhost:${PORT} (ADMIN_SECRET: ${authOk ? "ok" : "eksik"}, DB: ${dbMode})`
         );
         scheduleProductNormBackfill();
+        closeExpiredShiftEntries().catch((err) =>
+          console.error("Mesai süpürme hatası:", err)
+        );
+        setInterval(() => {
+          closeExpiredShiftEntries().catch((err) =>
+            console.error("Mesai süpürme hatası:", err)
+          );
+        }, 15 * 60 * 1000);
       });
     })
     .catch((err) => {
