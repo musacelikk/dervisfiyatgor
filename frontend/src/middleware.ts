@@ -4,12 +4,15 @@ import { ADMIN_COOKIE, isValidAdminToken } from "@/lib/admin-session";
 import {
   ADMIN_LOGIN_PATH,
   EMPLOYEE_LOGIN_PATH,
+  SALES_PATH,
   getAdminHost,
   getEmployeeHost,
+  getSalesHost,
   getStoreHost,
   hostsConfigured,
   isAdminPanelPath,
   isEmployeePanelPath,
+  isSalesPath,
   normalizeHost,
 } from "@/lib/domains";
 import { MANAGER_COOKIE, isValidManagerToken } from "@/lib/manager-session";
@@ -38,9 +41,10 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
   const storeHost = getStoreHost();
   const adminHost = getAdminHost();
   const employeeHost = getEmployeeHost();
+  const salesHost = getSalesHost();
   const { pathname } = request.nextUrl;
 
-  if (!storeHost && !adminHost && !employeeHost) {
+  if (!storeHost && !adminHost && !employeeHost && !salesHost) {
     return null;
   }
 
@@ -48,25 +52,30 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
     return null;
   }
 
-  // Panel rotaları yalnızca kendi subdomain'inde (fiyatgor'dan erişilemez)
   if (hostsConfigured()) {
     if (isAdminPanelPath(pathname) && adminHost && host !== adminHost) {
-      if (storeHost && host === storeHost) {
+      if ((storeHost && host === storeHost) || (salesHost && host === salesHost)) {
         return NextResponse.redirect(new URL("/", request.url));
       }
       return redirectToHost(adminHost, request, pathname);
     }
     if (isEmployeePanelPath(pathname) && employeeHost && host !== employeeHost) {
-      if (storeHost && host === storeHost) {
+      if ((storeHost && host === storeHost) || (salesHost && host === salesHost)) {
         return NextResponse.redirect(new URL("/", request.url));
       }
       return redirectToHost(employeeHost, request, pathname);
+    }
+    if (isSalesPath(pathname) && salesHost && host !== salesHost) {
+      if (storeHost && host === storeHost) {
+        return NextResponse.redirect(new URL("/", request.url));
+      }
+      return redirectToHost(salesHost, request, pathname);
     }
   }
 
   // fiyatgor → yalnızca mağaza (/)
   if (storeHost && host === storeHost) {
-    if (isAdminPanelPath(pathname) || isEmployeePanelPath(pathname)) {
+    if (isAdminPanelPath(pathname) || isEmployeePanelPath(pathname) || isSalesPath(pathname)) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return null;
@@ -90,6 +99,17 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
     }
     if (!isEmployeePanelPath(pathname)) {
       return NextResponse.redirect(new URL(EMPLOYEE_LOGIN_PATH, request.url));
+    }
+    return null;
+  }
+
+  // satış → yalnızca /satis/*
+  if (salesHost && host === salesHost) {
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL(SALES_PATH, request.url));
+    }
+    if (!isSalesPath(pathname)) {
+      return NextResponse.redirect(new URL(SALES_PATH, request.url));
     }
     return null;
   }

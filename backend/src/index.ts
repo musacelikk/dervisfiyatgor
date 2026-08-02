@@ -25,6 +25,7 @@ import adminAuthRouter from "./routes/adminAuth";
 import adminOrdersRouter from "./routes/adminOrders";
 import adminAuditRouter from "./routes/adminAudit";
 import adminExpensesRouter from "./routes/adminExpenses";
+import productImagesRouter from "./routes/productImages";
 import stockCountRouter from "./routes/stockCount";
 import ordersRouter from "./routes/orders";
 import { initDatabase, isPostgres } from "./lib/database";
@@ -52,6 +53,7 @@ app.use("/api/orders", ordersRouter);
 app.use("/api/admin/orders", adminOrdersRouter);
 app.use("/api/admin/audit", adminAuditRouter);
 app.use("/api/admin/expenses", adminExpensesRouter);
+app.use("/api/admin/product-images", productImagesRouter);
 app.use("/api/admin/stock-count", stockCountRouter);
 app.use("/api/auth/employee", employeeAuthRouter);
 app.use("/api/auth/admin", adminAuthRouter);
@@ -59,6 +61,16 @@ app.use("/api/auth/admin", adminAuthRouter);
 app.use((_req, res) => {
   res.status(404).json({ error: "Endpoint bulunamadı." });
 });
+
+app.use(
+  (err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("İşlenmemiş route hatası:", err);
+    if (res.headersSent) return;
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Sunucu hatası.",
+    });
+  }
+);
 
 export default app;
 

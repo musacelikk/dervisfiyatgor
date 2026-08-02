@@ -1,3 +1,12 @@
+export type ProductImage = {
+  id: number;
+  url: string;
+  sortOrder?: number;
+  objectKey?: string;
+  stockCode?: string;
+  createdAt?: string;
+};
+
 export interface Product {
   stockCode: string;
   name: string;
@@ -12,6 +21,8 @@ export interface Product {
   description2: string | null;
   group: string | null;
   countStatus?: StockCountStatus;
+  images?: ProductImage[];
+  imageUrl?: string | null;
 }
 
 export type StockCountStatus = "pending" | "updated" | "unchanged";
@@ -49,6 +60,25 @@ export interface ProductListResult {
   query: string;
   showAll?: boolean;
   stockCount?: StockCountState;
+}
+
+/** Herkese açık katalog yalnızca bu alanları döner (alış fiyatı, stok,
+ *  barkod ve açıklamalar bilinçli olarak yok). */
+export type CatalogProduct = Pick<
+  Product,
+  "stockCode" | "name" | "unit" | "group" | "salePrice1" | "salePrice2"
+> & {
+  images: ProductImage[];
+  imageUrl: string | null;
+};
+
+export interface CatalogListResult {
+  products: CatalogProduct[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  query: string;
 }
 
 export interface HealthStatus {

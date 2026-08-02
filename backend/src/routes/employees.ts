@@ -9,6 +9,7 @@ import {
   normalizePermissionsInput,
   updateEmployee,
 } from "../services/employees";
+import { revokeEmployeeSessionsFor } from "../services/sessions";
 
 const router = Router();
 
@@ -58,6 +59,9 @@ router.patch("/:id", async (req, res) => {
       active: typeof body.active === "boolean" ? body.active : undefined,
       permissions,
     });
+    if (employee.active === false) {
+      revokeEmployeeSessionsFor(id);
+    }
     logAuditFromContext(getAuditContext(req), {
       action: "employee.update",
       resourceType: "employee",
@@ -85,6 +89,7 @@ router.delete("/:id", async (req, res) => {
 
   try {
     await deleteEmployee(id);
+    revokeEmployeeSessionsFor(id);
     logAuditFromContext(getAuditContext(req), {
       action: "employee.delete",
       resourceType: "employee",

@@ -18,6 +18,12 @@ export function getEmployeeHost(): string | undefined {
   return v || undefined;
 }
 
+/** satis.dervisplastik.com — ürün kataloğu (resimli) */
+export function getSalesHost(): string | undefined {
+  const v = process.env.NEXT_PUBLIC_SALES_HOST?.trim().toLowerCase();
+  return v || undefined;
+}
+
 /** fiyatgor subdomain — müşteri mağazası */
 export const STORE_PATH = "/";
 
@@ -31,12 +37,19 @@ export const EMPLOYEE_PATH = "/yonetici";
 export const EMPLOYEE_LOGIN_PATH = `${EMPLOYEE_PATH}/login`;
 export const EMPLOYEE_ENTRY_PATH = EMPLOYEE_NAV[0].href;
 
+/** satış kataloğu */
+export const SALES_PATH = "/satis";
+
 export function isAdminPanelPath(pathname: string): boolean {
   return pathname === ADMIN_PATH || pathname.startsWith(`${ADMIN_PATH}/`);
 }
 
 export function isEmployeePanelPath(pathname: string): boolean {
   return pathname === EMPLOYEE_PATH || pathname.startsWith(`${EMPLOYEE_PATH}/`);
+}
+
+export function isSalesPath(pathname: string): boolean {
+  return pathname === SALES_PATH || pathname.startsWith(`${SALES_PATH}/`);
 }
 
 export function normalizeHost(host: string | null | undefined): string {
@@ -62,6 +75,11 @@ export function isEmployeeHost(host: string): boolean {
   return employee ? normalizeHost(host) === employee : false;
 }
 
+export function isSalesHost(host: string): boolean {
+  const sales = getSalesHost();
+  return sales ? normalizeHost(host) === sales : false;
+}
+
 export function externalUrl(host: string | undefined, path: string): string {
   if (!host) return path;
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -72,9 +90,17 @@ export function getStoreUrl(path = STORE_PATH): string {
   return externalUrl(getStoreHost(), path);
 }
 
+export function getSalesUrl(path = SALES_PATH): string {
+  return externalUrl(getSalesHost(), path);
+}
+
 /** Client: mağaza linki yalnızca ayrı subdomain yokken gösterilir. */
 export function shouldShowStoreLink(currentHost?: string): boolean {
   if (!getStoreHost()) return true;
   if (!currentHost) return false;
-  return !isAdminHost(currentHost) && !isEmployeeHost(currentHost);
+  return (
+    !isAdminHost(currentHost) &&
+    !isEmployeeHost(currentHost) &&
+    !isSalesHost(currentHost)
+  );
 }

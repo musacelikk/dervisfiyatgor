@@ -5,6 +5,11 @@ import { getAuditContext } from "../lib/auditContext";
 import { parseExcelBuffer, getExcelHeaders } from "../services/excel";
 import { upsertProducts, clearProducts, getProductCount } from "../services/db";
 import { logAuditFromContext } from "../services/audit";
+import {
+  listAllProductImages,
+  restoreProductImages,
+} from "../services/productImages";
+import type { ProductImage } from "../types/productImage";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -42,7 +47,9 @@ router.post("/", requireAdminOrEmployee, upload.single("file"), async (req, res)
       return;
     }
 
+    let imageBackup: ProductImage[] = [];
     if (replace) {
+      imageBackup = await listAllProductImages();
       await clearProducts();
       logAuditFromContext(getAuditContext(req), {
         action: "catalog.clear",
@@ -53,6 +60,15 @@ router.post("/", requireAdminOrEmployee, upload.single("file"), async (req, res)
     }
 
     const imported = await upsertProducts(products);
+
+    // Excel işlemleri resimlere dokunmaz: replace sonrası kayıtlar geri bağlanır,
+    // depodaki dosyalar asla silinmez. (Kataloğa dönmeyen stok kodlarının
+    // kayıtları FK gereği bağlanamaz; ürün tekrar eklenirse resmi yeniden yüklenir.)
+    if (replace && imageBackup.length > 0) {
+      const newCodes = new Set(products.map((p) => p.stockCode.trim()));
+      const keep = imageBackup.filter((img) => newCodes.has(img.stockCode));
+      await restoreProductImages(keep);
+    }
 
     logAuditFromContext(getAuditContext(req), {
       action: "catalog.import",

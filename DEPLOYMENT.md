@@ -4,18 +4,20 @@
 
 | Subdomain | Amaç | Platform |
 |-----------|------|----------|
-| `fiyatgor.dervisplastik.com` | Müşteri mağaza | Vercel (frontend) |
+| `fiyatgor.dervisplastik.com` | Müşteri mağaza (fiyat gör) | Vercel (frontend) |
 | `admin.dervisplastik.com` | Admin paneli | Vercel (frontend) |
 | `personel.dervisplastik.com` | Çalışan paneli | Vercel (frontend) |
+| `satis.dervisplastik.com` | Ürün kataloğu (resimli) | Vercel (frontend) |
 | `dervisplastik.up.railway.app` | Backend API | Railway (public URL) |
 
-Üç frontend subdomain'i **aynı Vercel projesine** bağlanır. Her subdomain yalnızca kendi bölümünü açar:
+Dört frontend subdomain'i **aynı Vercel projesine** bağlanır. Her subdomain yalnızca kendi bölümünü açar:
 
 | Subdomain | Davranış |
 |-----------|----------|
-| `fiyatgor.*` | Yalnızca mağaza (`/`). `/admin` ve `/yonetici` engellenir. |
+| `fiyatgor.*` | Yalnızca mağaza (`/`). `/admin`, `/yonetici`, `/satis` engellenir. |
 | `admin.*` | Yalnızca `/admin/*` (admin-nav menüsü). Giriş sonrası `/admin` anasayfa. |
 | `personel.*` | Yalnızca `/yonetici/*` (employee-nav menüsü). Giriş sonrası yetkiye göre ilk sayfa. |
+| `satis.*` | Yalnızca `/satis` ürün kataloğu. |
 
 ---
 
@@ -38,10 +40,20 @@
 PORT=4000
 ADMIN_SECRET=guclu-rastgele-sifre
 DATABASE_URL=postgresql://...   # PostgreSQL eklentisinden
-CORS_ORIGIN=https://fiyatgor.dervisplastik.com,https://admin.dervisplastik.com,https://personel.dervisplastik.com
+CORS_ORIGIN=https://fiyatgor.dervisplastik.com,https://admin.dervisplastik.com,https://personel.dervisplastik.com,https://satis.dervisplastik.com
+
+# Tigris (S3 uyumlu) — ürün resimleri, presigned upload
+S3_ENDPOINT=https://t3.storageapi.dev
+S3_REGION=auto
+S3_BUCKET=foldable-basketcase-tru32x
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+S3_PUBLIC_BASE_URL=https://t3.storageapi.dev/foldable-basketcase-tru32x
 ```
 
 > Yerel geliştirme için `http://localhost:3000` CORS'a eklenmeli; canlı Railway'de gerekmez.
+> S3 anahtarlarını **yalnızca Railway**'e koyun; Vercel'e veya git'e koymayın.
+> Bucket'ta nesnelerin herkese açık okunabilir olduğundan emin olun (katalogda img src kullanılır).
 
 ### Public URL
 
@@ -68,17 +80,19 @@ NEXT_PUBLIC_API_URL=https://dervisplastik.up.railway.app
 NEXT_PUBLIC_STORE_HOST=fiyatgor.dervisplastik.com
 NEXT_PUBLIC_ADMIN_HOST=admin.dervisplastik.com
 NEXT_PUBLIC_EMPLOYEE_HOST=personel.dervisplastik.com
+NEXT_PUBLIC_SALES_HOST=satis.dervisplastik.com
 ```
 
-> `ADMIN_SECRET` **Vercel'e konmaz** — yalnızca Railway backend'de.
+> `ADMIN_SECRET` ve `S3_*` **Vercel'e konmaz** — yalnızca Railway backend'de.
 
-### Custom domain'ler (3 adet)
+### Custom domain'ler (4 adet)
 
 Vercel → Project → **Settings** → **Domains** → her birini ekleyin:
 
 - `fiyatgor.dervisplastik.com`
 - `admin.dervisplastik.com`
 - `personel.dervisplastik.com`
+- `satis.dervisplastik.com`
 
 Her domain için Vercel bir **CNAME kaydı** ister (genelde `cname.vercel-dns.com` veya proje bazlı özel değer).
 
@@ -88,15 +102,16 @@ Her domain için Vercel bir **CNAME kaydı** ister (genelde `cname.vercel-dns.co
 
 GoDaddy → **dervisplastik.com** → **DNS Yönetimi** → **Kayıt Ekle**
 
-### Frontend (Vercel) — 3 kayıt
+### Frontend (Vercel) — 4 kayıt
 
 | Tip | Ad (Host) | Değer (Points to) | TTL |
 |-----|-----------|-------------------|-----|
 | CNAME | `fiyatgor` | Vercel'in verdiği CNAME | 600 |
 | CNAME | `admin` | Vercel'in verdiği CNAME | 600 |
 | CNAME | `personel` | Vercel'in verdiği CNAME | 600 |
+| CNAME | `satis` | Vercel'in verdiği CNAME | 600 |
 
-> Üç subdomain aynı Vercel projesine gider; Vercel hangi domain'den geldiğini `Host` header'ından bilir.
+> Dört subdomain aynı Vercel projesine gider; Vercel hangi domain'den geldiğini `Host` header'ından bilir.
 
 Backend için GoDaddy'de **DNS kaydı eklemezsiniz** — API doğrudan `https://dervisplastik.up.railway.app` üzerinden çalışır.
 

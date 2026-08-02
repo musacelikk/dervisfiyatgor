@@ -152,7 +152,7 @@ router.post("/", async (req, res) => {
 });
 
 router.get("/:stockCode", async (req, res) => {
-  const row = await getProductByStockCode(decodeURIComponent(req.params.stockCode));
+  const row = await getProductByStockCode(req.params.stockCode);
   if (!row) {
     res.status(404).json({ error: "Ürün bulunamadı." });
     return;
@@ -162,7 +162,7 @@ router.get("/:stockCode", async (req, res) => {
 
 router.patch("/:stockCode", async (req, res) => {
   try {
-    const code = decodeURIComponent(req.params.stockCode);
+    const code = req.params.stockCode;
     const existing = await getProductByStockCode(code);
     if (!existing) {
       res.status(404).json({ error: "Ürün bulunamadı." });
@@ -196,8 +196,12 @@ router.patch("/:stockCode", async (req, res) => {
 
 router.delete("/:stockCode", async (req, res) => {
   try {
-    const code = decodeURIComponent(req.params.stockCode);
+    const code = req.params.stockCode;
     const existing = await getProductByStockCode(code);
+    if (existing) {
+      const { deleteImagesForStockCode } = await import("../services/productImages");
+      await deleteImagesForStockCode(code);
+    }
     await deleteProduct(code);
     logAuditFromContext(getAuditContext(req), {
       action: "product.delete",

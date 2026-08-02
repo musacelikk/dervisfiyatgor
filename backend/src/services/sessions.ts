@@ -70,3 +70,12 @@ export function validateEmployeeSession(
 export function revokeEmployeeSession(token: string | undefined): void {
   if (token) employeeSessions.delete(token);
 }
+
+/** Personel pasifleştirildiğinde/silindiğinde açık oturumları düşürür. */
+export function revokeEmployeeSessionsFor(employeeId: number): void {
+  for (const [token, session] of employeeSessions) {
+    if (session.employeeId === employeeId) {
+      employeeSessions.delete(token);
+    }
+  }
+}

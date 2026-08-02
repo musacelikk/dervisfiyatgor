@@ -14,117 +14,149 @@ function resolveDataDir(): string {
 
 let sqliteDb: Database.Database | null = null;
 
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 const NAME_SEARCH_LIMIT = 30;
 
-function migrate(database: Database.Database): void {
-  const currentVersion = database.pragma("user_version", { simple: true }) as number;
+function tableColumns(database: Database.Database, table: string): Set<string> {
+  const rows = database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  return new Set(rows.map((r) => r.name));
+}
 
-  if (currentVersion >= SCHEMA_VERSION) return;
-
-  if (currentVersion === 10) {
-    database.exec(`
-      ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_code TEXT;
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_order_code ON orders(order_code);
-    `);
-    database.pragma(`user_version = ${SCHEMA_VERSION}`);
-    return;
+function addColumnIfMissing(
+  database: Database.Database,
+  table: string,
+  column: string,
+  definition: string
+): void {
+  if (!tableColumns(database, table).has(column)) {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
+}
 
-  if (currentVersion === 9) {
-    database.exec(`
-      CREATE TABLE IF NOT EXISTS stock_count_state (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        active INTEGER NOT NULL DEFAULT 0,
-        started_at TEXT
+/** fromVersion → fromVersion+1 adımı. Eski tablolara dokunan adımlar,
+ *  tablo/kolon zaten yoksa initSqliteDatabase'in ana bloğuna bırakır. */
+function applyMigrationStep(database: Database.Database, fromVersion: number): void {
+  switch (fromVersion) {
+    case 4:
+      addColumnIfMissing(database, "products", "purchase_price_1", "REAL");
+      addColumnIfMissing(database, "products", "purchase_price_2", "REAL");
+      return;
+    case 5:
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS employees (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          username TEXT NOT NULL COLLATE NOCASE,
+          password_hash TEXT NOT NULL,
+          active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_username ON employees(username);
+      `);
+      return;
+    case 6:
+      addColumnIfMissing(
+        database,
+        "employees",
+        "permissions",
+        `TEXT NOT NULL DEFAULT '["scan"]'`
       );
-      INSERT OR IGNORE INTO stock_count_state (id, active) VALUES (1, 0);
-      CREATE TABLE IF NOT EXISTS stock_count_items (
-        stock_code TEXT PRIMARY KEY,
-        status TEXT NOT NULL CHECK (status IN ('updated', 'unchanged'))
-      );
-    `);
-    database.pragma(`user_version = ${SCHEMA_VERSION}`);
-    return;
-  }
-
-  if (currentVersion === 8) {
-    database.exec(`
-      ALTER TABLE products ADD COLUMN stock_code_norm TEXT;
-      ALTER TABLE products ADD COLUMN name_norm TEXT;
-      ALTER TABLE products ADD COLUMN barcode_norm TEXT;
-      ALTER TABLE products ADD COLUMN group_name_norm TEXT;
-      CREATE INDEX IF NOT EXISTS idx_products_name_norm ON products(name_norm);
-      CREATE INDEX IF NOT EXISTS idx_products_stock_code_norm ON products(stock_code_norm);
-      CREATE INDEX IF NOT EXISTS idx_products_barcode_norm ON products(barcode_norm);
-    `);
-    database.pragma(`user_version = ${SCHEMA_VERSION}`);
-    return;
-  }
-
-  if (currentVersion === 7) {
-    database.exec(`
-      CREATE TABLE IF NOT EXISTS audit_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        actor_type TEXT NOT NULL,
-        actor_id TEXT,
-        actor_name TEXT,
-        action TEXT NOT NULL,
-        resource_type TEXT,
-        resource_id TEXT,
-        message TEXT,
-        metadata TEXT,
-        ip TEXT,
-        user_agent TEXT,
-        success INTEGER NOT NULL DEFAULT 1
-      );
-      CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
-      CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
-      CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_type, actor_id);
-    `);
-    database.pragma(`user_version = ${SCHEMA_VERSION}`);
-    return;
-  }
-
-  if (currentVersion === 6) {
-    const cols = database.prepare(`PRAGMA table_info(employees)`).all() as { name: string }[];
-    if (!cols.some((c) => c.name === "permissions")) {
-      database.exec(
-        `ALTER TABLE employees ADD COLUMN permissions TEXT NOT NULL DEFAULT '["scan"]'`
-      );
+      return;
+    case 7:
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          actor_type TEXT NOT NULL,
+          actor_id TEXT,
+          actor_name TEXT,
+          action TEXT NOT NULL,
+          resource_type TEXT,
+          resource_id TEXT,
+          message TEXT,
+          metadata TEXT,
+          ip TEXT,
+          user_agent TEXT,
+          success INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+        CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_type, actor_id);
+      `);
+      return;
+    case 8:
+      addColumnIfMissing(database, "products", "stock_code_norm", "TEXT");
+      addColumnIfMissing(database, "products", "name_norm", "TEXT");
+      addColumnIfMissing(database, "products", "barcode_norm", "TEXT");
+      addColumnIfMissing(database, "products", "group_name_norm", "TEXT");
+      database.exec(`
+        CREATE INDEX IF NOT EXISTS idx_products_name_norm ON products(name_norm);
+        CREATE INDEX IF NOT EXISTS idx_products_stock_code_norm ON products(stock_code_norm);
+        CREATE INDEX IF NOT EXISTS idx_products_barcode_norm ON products(barcode_norm);
+      `);
+      return;
+    case 9:
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS stock_count_state (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          active INTEGER NOT NULL DEFAULT 0,
+          started_at TEXT
+        );
+        INSERT OR IGNORE INTO stock_count_state (id, active) VALUES (1, 0);
+        CREATE TABLE IF NOT EXISTS stock_count_items (
+          stock_code TEXT PRIMARY KEY,
+          status TEXT NOT NULL CHECK (status IN ('updated', 'unchanged'))
+        );
+      `);
+      return;
+    case 10: {
+      const orderCols = tableColumns(database, "orders");
+      if (orderCols.size > 0) {
+        if (!orderCols.has("order_code")) {
+          database.exec(`ALTER TABLE orders ADD COLUMN order_code TEXT`);
+        }
+        database.exec(
+          `CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_order_code ON orders(order_code)`
+        );
+      }
+      return;
     }
-    database.pragma(`user_version = ${SCHEMA_VERSION}`);
+    case 11:
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS product_images (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stock_code TEXT NOT NULL,
+          object_key TEXT NOT NULL UNIQUE,
+          url TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (stock_code) REFERENCES products(stock_code) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_product_images_stock_code
+          ON product_images(stock_code, sort_order, id);
+      `);
+      return;
+    default:
+      return;
+  }
+}
+
+function migrate(database: Database.Database): void {
+  const startVersion = database.pragma("user_version", { simple: true }) as number;
+
+  if (startVersion >= SCHEMA_VERSION) return;
+
+  if (startVersion >= 4) {
+    for (let v = startVersion; v < SCHEMA_VERSION; v++) {
+      applyMigrationStep(database, v);
+      database.pragma(`user_version = ${v + 1}`);
+    }
     return;
   }
 
-  if (currentVersion === 5) {
-    database.exec(`
-      CREATE TABLE IF NOT EXISTS employees (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        username TEXT NOT NULL COLLATE NOCASE,
-        password_hash TEXT NOT NULL,
-        active INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now'))
-      );
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_username ON employees(username);
-    `);
-    database.pragma(`user_version = ${SCHEMA_VERSION}`);
-    return;
-  }
-
-  if (currentVersion === 4) {
-    database.exec(`
-      ALTER TABLE products ADD COLUMN purchase_price_1 REAL;
-      ALTER TABLE products ADD COLUMN purchase_price_2 REAL;
-    `);
-    database.pragma("user_version = 5");
-    migrate(database);
-    return;
-  }
-
+  // v4 öncesi (ve sıfırdan kurulum): products güncel şemayla yeniden kurulur;
+  // kalan tabloları initSqliteDatabase'in ana bloğu güncel halleriyle oluşturur.
   database.exec(`
     DROP TABLE IF EXISTS products;
     CREATE TABLE products (
@@ -260,6 +292,17 @@ export function initSqliteDatabase(): void {
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses(created_at DESC);
+    CREATE TABLE IF NOT EXISTS product_images (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      stock_code TEXT NOT NULL,
+      object_key TEXT NOT NULL UNIQUE,
+      url TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (stock_code) REFERENCES products(stock_code) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_product_images_stock_code
+      ON product_images(stock_code, sort_order, id);
   `);
 }
 

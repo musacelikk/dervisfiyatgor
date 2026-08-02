@@ -5,3 +5,7 @@ backend/data/
 backend/dist/
 frontend/.next/
 frontend/out/
+
+# veritabanı yedekleri (gerçek veri içerir, repoya girmesin)
+*.sql
+*.sql.gz

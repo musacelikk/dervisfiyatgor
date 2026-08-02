@@ -24,6 +24,7 @@ import AdminPagination from "./AdminPagination";
 import AdminModal from "./AdminModal";
 import AdminIconButton from "./AdminIconButton";
 import { IconEdit, IconTrash } from "./AdminIcons";
+import ProductImageUploader from "./ProductImageUploader";
 import NumericField from "@/components/NumericField";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { formatNumericInput, parseNumericInput } from "@/lib/numeric-input";
@@ -173,7 +174,11 @@ export default function ProductsPage({
     return () => clearTimeout(t);
   }, [search]);
 
+  // Hızlı arama/tarama sırasında geç dönen eski yanıtın yenisini ezmemesi için
+  const loadSeqRef = useRef(0);
+
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -185,14 +190,16 @@ export default function ProductsPage({
       const data = isEmployee
         ? await managerFetchProducts(params)
         : await fetchProducts(params);
+      if (seq !== loadSeqRef.current) return;
       setProducts(data.products);
       setTotal(data.total);
       setTotalPages(data.totalPages);
       setStockCount(data.stockCount ?? { active: false, startedAt: null });
     } catch (err) {
+      if (seq !== loadSeqRef.current) return;
       setError(err instanceof Error ? err.message : "Liste yüklenemedi.");
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
   }, [debouncedSearch, page, pageSize, isEmployee]);
 
@@ -241,12 +248,17 @@ export default function ProductsPage({
       if (formMode.type === "create") {
         if (isEmployee) await managerCreateProduct(payload);
         else await createProduct(payload);
+        // Kayıttan sonra resim yükleyebilsin diye düzenleme moduna geç
+        setFormMode({ type: "edit", product: payload });
+        setForm(productToForm(payload));
+        await load();
+        return;
       } else {
         if (isEmployee) await managerUpdateProduct(formMode.product.stockCode, payload);
         else await updateProduct(formMode.product.stockCode, payload);
+        closeForm();
+        await load();
       }
-      closeForm();
-      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kaydedilemedi.");
     } finally {
@@ -644,12 +656,20 @@ export default function ProductsPage({
                 </div>
               </div>
 
+              <div className="mt-5 border-t border-zinc-100 pt-4">
+                <ProductImageUploader
+                  stockCode={form.stockCode}
+                  mode={isEmployee ? "employee" : "admin"}
+                  enabled={formMode.type === "edit" && form.stockCode.trim().length > 0}
+                />
+              </div>
+
               {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
             </div>
 
             <div className="admin-modal-footer">
               <button type="button" onClick={closeForm} className="admin-btn-secondary">
-                İptal
+                {formMode.type === "edit" ? "Kapat" : "İptal"}
               </button>
               <button type="submit" disabled={saving} className="admin-btn-primary">
                 {saving ? "Kaydediliyor…" : "Kaydet"}
