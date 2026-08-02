@@ -49,11 +49,16 @@ S3_BUCKET=foldable-basketcase-tru32x
 S3_ACCESS_KEY_ID=...
 S3_SECRET_ACCESS_KEY=...
 S3_PUBLIC_BASE_URL=https://t3.storageapi.dev/foldable-basketcase-tru32x
+S3_PUBLIC_READ=false
 ```
 
 > Yerel geliştirme için `http://localhost:3000` CORS'a eklenmeli; canlı Railway'de gerekmez.
 > S3 anahtarlarını **yalnızca Railway**'e koyun; Vercel'e veya git'e koymayın.
-> Bucket'ta nesnelerin herkese açık okunabilir olduğundan emin olun (katalogda img src kullanılır).
+>
+> **Resim görüntüleme:** Bucket private ise (varsayılan) backend, resimleri 12 saatlik
+> presigned GET URL'leriyle servis eder — ek ayar gerekmez. Bucket'ı dashboard'dan
+> herkese açık okunur yaparsanız `S3_PUBLIC_READ=true` verin; sabit URL'ler kullanılır
+> ve tarayıcı cache'i daha verimli çalışır.
 
 ### Public URL
 

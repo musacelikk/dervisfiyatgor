@@ -1,5 +1,6 @@
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -7,6 +8,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 
 const PRESIGN_EXPIRES_SEC = 15 * 60;
+/** Görüntüleme URL'lerinin ömrü — sayfa açıkken resimler ölmemeli. */
+const READ_URL_EXPIRES_SEC = 12 * 60 * 60;
 
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
@@ -66,6 +69,23 @@ export function publicUrlForKey(objectKey: string): string {
     process.env.S3_PUBLIC_BASE_URL?.trim().replace(/\/$/, "") ||
     `${getEndpoint()}/${getBucket()}`;
   return `${base}/${objectKey.replace(/^\//, "")}`;
+}
+
+/** Bucket herkese açık okunuyorsa true yapın; sabit URL'ler kullanılır.
+ *  Varsayılan: private bucket varsayılır, görüntüleme presigned GET ile yapılır. */
+export function isPublicReadEnabled(): boolean {
+  return process.env.S3_PUBLIC_READ?.trim().toLowerCase() === "true";
+}
+
+/** Private bucket için süreli görüntüleme URL'i (yerel imzalama, ağ isteği yok). */
+export async function presignedReadUrl(objectKey: string): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: getBucket(),
+    Key: objectKey,
+  });
+  return getSignedUrl(getS3Client(), command, {
+    expiresIn: READ_URL_EXPIRES_SEC,
+  });
 }
 
 export function sanitizeStockCodeForKey(stockCode: string): string {

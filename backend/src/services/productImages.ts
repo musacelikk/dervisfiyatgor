@@ -1,6 +1,11 @@
 import { getPool, isPostgres } from "../lib/database";
 import { db as getSqliteDb } from "./db-sqlite";
-import { deleteObject } from "../lib/tigris";
+import {
+  deleteObject,
+  isPublicReadEnabled,
+  isS3Configured,
+  presignedReadUrl,
+} from "../lib/tigris";
 import type { ProductImage, ProductImageInput } from "../types/productImage";
 
 type Row = Record<string, unknown>;
@@ -16,6 +21,23 @@ function mapRow(row: Row): ProductImage {
   };
 }
 
+/** DB'de kalıcı public URL saklanır; bucket private ise görüntüleme için
+ *  süreli presigned GET URL'i üretilir (S3_PUBLIC_READ=true sabit URL kullanır). */
+async function withViewUrls(images: ProductImage[]): Promise<ProductImage[]> {
+  if (images.length === 0 || !isS3Configured() || isPublicReadEnabled()) {
+    return images;
+  }
+  return Promise.all(
+    images.map(async (img) => {
+      try {
+        return { ...img, url: await presignedReadUrl(img.objectKey) };
+      } catch {
+        return img;
+      }
+    })
+  );
+}
+
 export async function listImagesForStockCode(stockCode: string): Promise<ProductImage[]> {
   const code = stockCode.trim();
   if (!code) return [];
@@ -24,14 +46,14 @@ export async function listImagesForStockCode(stockCode: string): Promise<Product
       `SELECT * FROM product_images WHERE stock_code = $1 ORDER BY sort_order ASC, id ASC`,
       [code]
     );
-    return rows.map(mapRow);
+    return withViewUrls(rows.map(mapRow));
   }
   const rows = getSqliteDb()
     .prepare(
       `SELECT * FROM product_images WHERE stock_code = ? ORDER BY sort_order ASC, id ASC`
     )
     .all(code) as Row[];
-  return rows.map(mapRow);
+  return withViewUrls(rows.map(mapRow));
 }
 
 export async function listImagesForStockCodes(
@@ -47,8 +69,8 @@ export async function listImagesForStockCodes(
        ORDER BY sort_order ASC, id ASC`,
       [stockCodes]
     );
-    for (const row of rows) {
-      const img = mapRow(row);
+    const images = await withViewUrls(rows.map(mapRow));
+    for (const img of images) {
       const list = map.get(img.stockCode) ?? [];
       list.push(img);
       map.set(img.stockCode, list);
@@ -64,8 +86,8 @@ export async function listImagesForStockCodes(
        ORDER BY sort_order ASC, id ASC`
     )
     .all(...stockCodes) as Row[];
-  for (const row of rows) {
-    const img = mapRow(row);
+  const images = await withViewUrls(rows.map(mapRow));
+  for (const img of images) {
     const list = map.get(img.stockCode) ?? [];
     list.push(img);
     map.set(img.stockCode, list);
@@ -132,7 +154,8 @@ export async function createProductImage(input: ProductImageInput): Promise<Prod
        RETURNING *`,
       [stockCode, objectKey, url]
     );
-    return mapRow(rows[0]);
+    const [image] = await withViewUrls([mapRow(rows[0])]);
+    return image;
   }
 
   const db = getSqliteDb();
@@ -149,7 +172,8 @@ export async function createProductImage(input: ProductImageInput): Promise<Prod
   const row = db
     .prepare(`SELECT * FROM product_images WHERE id = ?`)
     .get(result.lastInsertRowid) as Row;
-  return mapRow(row);
+  const [image] = await withViewUrls([mapRow(row)]);
+  return image;
 }
 
 export async function deleteProductImage(id: number): Promise<void> {
