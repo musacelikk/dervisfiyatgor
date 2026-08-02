@@ -45,7 +45,11 @@ export default function AdminLoginPage() {
           <div className="mb-8 flex justify-center lg:hidden">
             <BrandLogo size="md" />
           </div>
-          <div className="rounded-xl border border-zinc-200 bg-white p-8 shadow-sm">
+          <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-white p-8 shadow-[0_12px_32px_rgb(0_0_0_/0.08)]">
+            <span
+              aria-hidden
+              className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-accent to-red-400"
+            />
             <LoginForm
               title="Admin girişi"
               subtitle="Yönetim paneline erişin"

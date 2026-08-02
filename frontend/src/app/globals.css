@@ -1353,7 +1353,10 @@ textarea {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: linear-gradient(180deg, #fafafa 0%, #eef0f4 100%);
+  background:
+    radial-gradient(640px 320px at 12% -8%, rgb(220 38 38 / 0.07), transparent 60%),
+    radial-gradient(560px 300px at 100% 100%, rgb(24 24 27 / 0.05), transparent 55%),
+    linear-gradient(180deg, #fafafa 0%, #eef0f4 100%);
 }
 
 .employee-login-wrap {
@@ -1368,11 +1371,21 @@ textarea {
 }
 
 .employee-login-card {
+  position: relative;
+  overflow: hidden;
   border-radius: 1.125rem;
   border: 1px solid #e4e4e7;
   background: #fff;
   padding: 1.5rem;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.06);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.08);
+}
+
+.employee-login-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent) 0%, #f87171 100%);
 }
 
 .admin-checkbox {
@@ -1969,8 +1982,31 @@ textarea {
 }
 
 .admin-stat-card-featured {
-  border-color: #fecaca;
-  background: linear-gradient(160deg, #fff 0%, #fff5f5 100%);
+  border-color: transparent;
+  background: linear-gradient(150deg, #18181b 0%, #3f1515 65%, #7f1d1d 100%);
+  box-shadow: 0 10px 28px rgb(127 29 29 / 0.28);
+}
+
+.admin-stat-card-featured:hover {
+  border-color: transparent;
+  box-shadow: 0 14px 34px rgb(127 29 29 / 0.36);
+}
+
+.admin-stat-card-featured .admin-stat-label {
+  color: #fca5a5;
+}
+
+.admin-stat-card-featured .admin-stat-value {
+  color: #fff;
+}
+
+.admin-stat-card-featured .admin-stat-hint {
+  color: rgb(255 255 255 / 0.55);
+}
+
+.admin-stat-card-featured .admin-stat-icon {
+  background: rgb(255 255 255 / 0.1);
+  color: #fca5a5;
 }
 
 .admin-stat-card-top {
@@ -5643,7 +5679,7 @@ tr.stock-count-row-unchanged > td {
   background: #dc2626;
 }
 
-/* ——— Satış kataloğu (satis.dervisplastik.com) — mobile-first ——— */
+/* ——— Satış kataloğu (satis.dervisplastik.com) — koyu premium başlık, mobile-first ——— */
 .sales-shell {
   height: 100dvh;
   overflow-y: auto;
@@ -5651,8 +5687,8 @@ tr.stock-count-row-unchanged > td {
   overscroll-behavior-y: contain;
   -webkit-tap-highlight-color: transparent;
   background:
-    radial-gradient(1200px 500px at 10% -10%, rgb(220 38 38 / 0.08), transparent 55%),
-    linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%);
+    radial-gradient(900px 420px at 85% -5%, rgb(220 38 38 / 0.06), transparent 60%),
+    linear-gradient(180deg, #fafafa 0%, #f0f0f2 100%);
   color: #18181b;
 }
 
@@ -5660,11 +5696,25 @@ tr.stock-count-row-unchanged > td {
   position: sticky;
   top: 0;
   z-index: 20;
-  border-bottom: 1px solid rgb(228 228 231 / 0.9);
-  background: rgb(250 250 250 / 0.92);
+  background: linear-gradient(
+    150deg,
+    rgb(24 24 27 / 0.97) 0%,
+    rgb(39 39 42 / 0.97) 55%,
+    rgb(69 23 23 / 0.97) 100%
+  );
   backdrop-filter: blur(12px);
-  padding: 0.75rem 1rem 0.875rem;
-  padding-top: calc(0.75rem + env(safe-area-inset-top));
+  border-bottom: 1px solid rgb(255 255 255 / 0.07);
+  padding: 0.8rem 1rem 1rem;
+  padding-top: calc(0.8rem + env(safe-area-inset-top));
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
+}
+
+.sales-header::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent) 0%, #f87171 45%, transparent 90%);
 }
 
 .sales-header-inner {
@@ -5683,9 +5733,9 @@ tr.stock-count-row-unchanged > td {
 .sales-eyebrow {
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #a1a1aa;
+  color: #fca5a5;
 }
 
 .sales-title {
@@ -5693,29 +5743,30 @@ tr.stock-count-row-unchanged > td {
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.15;
+  color: #fff;
 }
 
 .sales-count {
   flex-shrink: 0;
-  border: 1px solid #e4e4e7;
+  border: 1px solid rgb(255 255 255 / 0.14);
   border-radius: 999px;
-  background: #fff;
-  padding: 0.3rem 0.65rem;
+  background: rgb(255 255 255 / 0.08);
+  padding: 0.32rem 0.7rem;
   font-size: 0.6875rem;
   font-weight: 700;
-  color: #52525b;
+  color: #e4e4e7;
   white-space: nowrap;
 }
 
 .sales-search {
   position: relative;
   max-width: 72rem;
-  margin: 0.75rem auto 0;
+  margin: 0.8rem auto 0;
 }
 
 .sales-search-icon {
   position: absolute;
-  left: 0.85rem;
+  left: 1rem;
   top: 50%;
   transform: translateY(-50%);
   width: 1.05rem;
@@ -5727,13 +5778,14 @@ tr.stock-count-row-unchanged > td {
 .sales-search-input {
   width: 100%;
   min-height: 3rem;
-  border: 1.5px solid #e4e4e7;
-  border-radius: 0.9rem;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
   background: #fff;
-  padding: 0.65rem 2.6rem 0.65rem 2.5rem;
+  padding: 0.65rem 2.7rem 0.65rem 2.7rem;
   /* 16px: iOS'ta odaklanınca otomatik zoom'u önler */
   font-size: 1rem;
   appearance: none;
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.22);
 }
 
 .sales-search-input::-webkit-search-cancel-button {
@@ -5742,13 +5794,15 @@ tr.stock-count-row-unchanged > td {
 
 .sales-search-input:focus {
   outline: none;
-  border-color: #18181b;
-  box-shadow: 0 0 0 3px rgb(24 24 27 / 0.08);
+  border-color: #f87171;
+  box-shadow:
+    0 10px 26px rgb(0 0 0 / 0.22),
+    0 0 0 3px rgb(220 38 38 / 0.22);
 }
 
 .sales-search-clear {
   position: absolute;
-  right: 0.5rem;
+  right: 0.55rem;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -5768,7 +5822,7 @@ tr.stock-count-row-unchanged > td {
 .sales-main {
   max-width: 72rem;
   margin: 0 auto;
-  padding: 0.9rem 0.8rem calc(2.5rem + env(safe-area-inset-bottom));
+  padding: 1rem 0.8rem calc(2.5rem + env(safe-area-inset-bottom));
 }
 
 .sales-empty {
@@ -5781,22 +5835,22 @@ tr.stock-count-row-unchanged > td {
 .sales-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 0.65rem;
 }
 
 .sales-card {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #e4e4e7;
-  border-radius: 1rem;
+  border: 1px solid #e6e6e9;
+  border-radius: 1.1rem;
   background: #fff;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.03);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04);
   cursor: pointer;
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .sales-card:active {
@@ -5805,28 +5859,34 @@ tr.stock-count-row-unchanged > td {
 
 @media (hover: hover) {
   .sales-card:hover {
-    transform: translateY(-2px);
-    border-color: #d4d4d8;
-    box-shadow: 0 8px 20px rgb(0 0 0 / 0.07);
+    transform: translateY(-3px);
+    border-color: #fecaca;
+    box-shadow: 0 14px 30px rgb(0 0 0 / 0.09);
+  }
+
+  .sales-card:hover .sales-card-media img {
+    transform: scale(1.05);
   }
 }
 
 .sales-card:focus-visible {
   outline: none;
-  border-color: #18181b;
-  box-shadow: 0 0 0 3px rgb(24 24 27 / 0.12);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 0.18);
 }
 
 .sales-card-media {
   position: relative;
   aspect-ratio: 1;
-  background: #f4f4f5;
+  background: #f5f5f6;
+  overflow: hidden;
 }
 
 .sales-card-media img {
   height: 100%;
   width: 100%;
   object-fit: cover;
+  transition: transform 0.35s ease;
 }
 
 .sales-card-badge {
@@ -5847,8 +5907,8 @@ tr.stock-count-row-unchanged > td {
   height: 100%;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #f4f4f5, #e4e4e7);
-  color: #a1a1aa;
+  background: linear-gradient(145deg, #f5f5f6, #e7e7ea);
+  color: #b9b9c0;
   font-size: 2rem;
   font-weight: 800;
 }
@@ -5857,15 +5917,15 @@ tr.stock-count-row-unchanged > td {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 0.18rem;
-  padding: 0.6rem 0.65rem 0.75rem;
+  gap: 0.22rem;
+  padding: 0.65rem 0.7rem 0.8rem;
   min-width: 0;
 }
 
 .sales-card-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.6875rem;
-  color: #71717a;
+  color: #a1a1aa;
 }
 
 .sales-card-name {
@@ -5879,8 +5939,14 @@ tr.stock-count-row-unchanged > td {
 }
 
 .sales-card-group {
-  font-size: 0.7rem;
-  color: #a1a1aa;
+  align-self: flex-start;
+  max-width: 100%;
+  border-radius: 999px;
+  background: #f4f4f5;
+  padding: 0.14rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #71717a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5888,7 +5954,7 @@ tr.stock-count-row-unchanged > td {
 
 .sales-card-price {
   margin-top: auto;
-  padding-top: 0.35rem;
+  padding-top: 0.4rem;
   font-size: 0.9375rem;
   font-weight: 800;
   color: #b91c1c;
@@ -5932,7 +5998,7 @@ tr.stock-count-row-unchanged > td {
   max-width: 24rem;
   min-height: 3rem;
   border: 1.5px solid #e4e4e7;
-  border-radius: 0.9rem;
+  border-radius: 999px;
   background: #fff;
   padding: 0 1.25rem;
   font-size: 0.9375rem;
@@ -5940,11 +6006,21 @@ tr.stock-count-row-unchanged > td {
   color: #18181b;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
   cursor: pointer;
-  transition: transform 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .sales-more-btn:active {
   transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .sales-more-btn:hover {
+    border-color: #fca5a5;
+    color: #b91c1c;
+  }
 }
 
 .sales-more-btn:disabled {
@@ -5959,7 +6035,7 @@ tr.stock-count-row-unchanged > td {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgb(24 24 27 / 0.55);
+  background: rgb(24 24 27 / 0.6);
   backdrop-filter: blur(6px);
   animation: sales-fade 0.18s ease;
 }
@@ -5972,17 +6048,17 @@ tr.stock-count-row-unchanged > td {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  border-radius: 1.4rem 1.4rem 0 0;
+  border-radius: 1.5rem 1.5rem 0 0;
   background: #fff;
   padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -12px 40px rgb(0 0 0 / 0.25);
+  box-shadow: 0 -12px 40px rgb(0 0 0 / 0.28);
   animation: sales-slide-up 0.25s cubic-bezier(0.2, 0.8, 0.25, 1);
 }
 
 .sales-modal-grab {
   width: 2.5rem;
   height: 0.3rem;
-  margin: 0.5rem auto 0;
+  margin: 0.55rem auto 0.35rem;
   border-radius: 999px;
   background: #d4d4d8;
 }
@@ -5999,7 +6075,7 @@ tr.stock-count-row-unchanged > td {
   height: 2.25rem;
   border-radius: 999px;
   border: none;
-  background: rgb(24 24 27 / 0.65);
+  background: rgb(24 24 27 / 0.62);
   color: #fff;
   font-size: 1.35rem;
   line-height: 1;
@@ -6011,10 +6087,14 @@ tr.stock-count-row-unchanged > td {
   background: rgb(24 24 27 / 0.85);
 }
 
+/* 4:3 + contain: yatay fotoğraflarda kare kutunun bıraktığı büyük beyaz
+   bantlar oluşmaz; açık gri fon paspartu gibi durur. */
 .sales-modal-media {
-  aspect-ratio: 1;
-  background: #fff;
-  border-bottom: 1px solid #f4f4f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  background: #f6f6f7;
 }
 
 .sales-modal-media img {
@@ -6024,6 +6104,7 @@ tr.stock-count-row-unchanged > td {
 }
 
 .sales-modal-media .sales-card-placeholder {
+  width: 100%;
   font-size: 3rem;
 }
 
@@ -6031,7 +6112,7 @@ tr.stock-count-row-unchanged > td {
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
-  padding: 0.65rem 0.9rem 0;
+  padding: 0.7rem 1rem 0.1rem;
   scrollbar-width: none;
 }
 
@@ -6041,14 +6122,15 @@ tr.stock-count-row-unchanged > td {
 
 .sales-modal-thumb {
   flex: 0 0 auto;
-  width: 3.5rem;
-  height: 3.5rem;
+  width: 3.75rem;
+  height: 3.75rem;
   padding: 0;
   overflow: hidden;
-  border-radius: 0.65rem;
+  border-radius: 0.8rem;
   border: 2px solid #e4e4e7;
   background: #f4f4f5;
   cursor: pointer;
+  transition: border-color 0.15s ease;
 }
 
 .sales-modal-thumb img {
@@ -6058,21 +6140,21 @@ tr.stock-count-row-unchanged > td {
 }
 
 .sales-modal-thumb.is-active {
-  border-color: #b91c1c;
+  border-color: var(--accent);
 }
 
 .sales-modal-body {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.9rem 1.1rem 1.25rem;
+  gap: 0.4rem;
+  padding: 0.9rem 1.15rem 1.3rem;
 }
 
 .sales-modal-name {
-  font-size: 1.05rem;
+  font-size: 1.2rem;
   font-weight: 800;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
 }
 
 .sales-modal-tags {
@@ -6091,9 +6173,12 @@ tr.stock-count-row-unchanged > td {
 }
 
 .sales-modal-price {
-  margin-top: 0.35rem;
-  font-size: 1.5rem;
+  margin-top: 0.45rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #f0f0f2;
+  font-size: 1.65rem;
   font-weight: 800;
+  letter-spacing: -0.02em;
   color: #b91c1c;
 }
 
@@ -6114,6 +6199,7 @@ tr.stock-count-row-unchanged > td {
   .sales-modal-backdrop,
   .sales-modal,
   .sales-card,
+  .sales-card-media img,
   .sales-more-btn {
     animation: none;
     transition: none;
@@ -6127,7 +6213,7 @@ tr.stock-count-row-unchanged > td {
   }
 
   .sales-card-body {
-    padding: 0.75rem 0.8rem 0.9rem;
+    padding: 0.8rem 0.85rem 0.95rem;
   }
 
   .sales-card-name {
@@ -6152,6 +6238,11 @@ tr.stock-count-row-unchanged > td {
   .sales-modal-grab {
     display: none;
   }
+
+  .sales-modal-media {
+    border-radius: 1.25rem 1.25rem 0 0;
+    overflow: hidden;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -6160,7 +6251,7 @@ tr.stock-count-row-unchanged > td {
   }
 
   .sales-main {
-    padding: 1.25rem 1.5rem 3rem;
+    padding: 1.4rem 1.5rem 3rem;
   }
 
   .sales-grid {
