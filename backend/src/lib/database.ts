@@ -207,6 +207,31 @@ async function migratePostgres(): Promise<void> {
       UNIQUE (employee_id, work_date)
     );
     CREATE INDEX IF NOT EXISTS idx_shift_entries_date ON shift_entries(work_date DESC);
+
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'store';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_by TEXT;
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    ALTER TABLE shift_entries ADD COLUMN IF NOT EXISTS status TEXT;
+    ALTER TABLE shift_entries ADD COLUMN IF NOT EXISTS note TEXT;
+    ALTER TABLE shift_entries ADD COLUMN IF NOT EXISTS created_by TEXT;
+
+    CREATE TABLE IF NOT EXISTS shift_denied_attempts (
+      id SERIAL PRIMARY KEY,
+      employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      work_date TEXT NOT NULL,
+      attempted_at TIMESTAMPTZ NOT NULL,
+      lat DOUBLE PRECISION,
+      lng DOUBLE PRECISION,
+      distance_m DOUBLE PRECISION
+    );
+    CREATE INDEX IF NOT EXISTS idx_shift_denied_date
+      ON shift_denied_attempts(work_date DESC);
   `);
 }
 

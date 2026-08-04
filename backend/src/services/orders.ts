@@ -8,9 +8,9 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   return sqlite.createOrder(input);
 }
 
-export async function listOrders(): Promise<Order[]> {
-  if (isPostgres()) return pg.listOrders();
-  return sqlite.listOrders();
+export async function listOrders(channel?: "store" | "sales"): Promise<Order[]> {
+  if (isPostgres()) return pg.listOrders(channel);
+  return sqlite.listOrders(channel);
 }
 
 export async function getOrderById(id: number): Promise<Order | undefined> {

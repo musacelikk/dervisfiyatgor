@@ -36,8 +36,11 @@ async function getUniqueOrderCode(): Promise<string> {
 function validateCreateInput(input: CreateOrderInput): void {
   const firstName = input.firstName?.trim() ?? "";
   const lastName = input.lastName?.trim() ?? "";
-  if (firstName.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
-  if (lastName.length < 2) throw new Error("Soyad en az 2 karakter olmalı.");
+  // Satış kanalında müşteri bilgisi opsiyonel (personel dükkanda oluşturur)
+  if (input.channel !== "sales") {
+    if (firstName.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
+    if (lastName.length < 2) throw new Error("Soyad en az 2 karakter olmalı.");
+  }
   if (!Array.isArray(input.items) || input.items.length === 0) {
     throw new Error("Sepette en az bir ürün olmalı.");
   }
@@ -57,6 +60,8 @@ function mapOrderRow(row: Record<string, unknown>): OrderRow {
     last_name: String(row.last_name),
     phone: row.phone == null ? null : String(row.phone),
     status: String(row.status) as OrderStatus,
+    channel: row.channel === "sales" ? "sales" : "store",
+    created_by: row.created_by == null ? null : String(row.created_by),
     created_at:
       row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     updated_at:
@@ -86,12 +91,14 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     const firstName = input.firstName.trim();
     const lastName = input.lastName.trim();
     const phone = input.phone?.trim() || null;
+    const channel = input.channel === "sales" ? "sales" : "store";
+    const createdBy = input.createdBy?.trim() || null;
 
     const orderResult = await client.query(
-      `INSERT INTO orders (order_code, first_name, last_name, phone, status, updated_at)
-       VALUES ($1, $2, $3, $4, 'pending', NOW())
+      `INSERT INTO orders (order_code, first_name, last_name, phone, status, channel, created_by, updated_at)
+       VALUES ($1, $2, $3, $4, 'pending', $5, $6, NOW())
        RETURNING *`,
-      [orderCode, firstName, lastName, phone]
+      [orderCode, firstName, lastName, phone, channel, createdBy]
     );
     const orderRow = mapOrderRow(orderResult.rows[0]);
     const itemRows: OrderItemRow[] = [];
@@ -127,9 +134,15 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   }
 }
 
-export async function listOrders(): Promise<Order[]> {
+export async function listOrders(channel?: "store" | "sales"): Promise<Order[]> {
   const pool = getPool();
-  const { rows } = await pool.query(`SELECT * FROM orders ORDER BY created_at DESC LIMIT 200`);
+  const { rows } = channel
+    ? await pool.query(
+        `SELECT * FROM orders WHERE COALESCE(channel, 'store') = $1
+         ORDER BY created_at DESC LIMIT 200`,
+        [channel]
+      )
+    : await pool.query(`SELECT * FROM orders ORDER BY created_at DESC LIMIT 200`);
   const orders: Order[] = [];
   for (const row of rows) {
     const orderRow = mapOrderRow(row);

@@ -27,6 +27,8 @@ export default function SettingsPage() {
   const [busy, setBusy] = useState<"start" | "stop" | "export" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [exportDone, setExportDone] = useState(false);
+  const [showPrices, setShowPrices] = useState<boolean | null>(null);
+  const [priceBusy, setPriceBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -39,7 +41,41 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
+    // Katalog ayarı bağımsız yüklenir
+    try {
+      const res = await fetch("/api/admin/settings");
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body.settings) {
+        setShowPrices(Boolean(body.settings.catalogShowPrices));
+      }
+    } catch {
+      /* toggle "yüklenemedi" durumunda kalır */
+    }
   }, []);
+
+  const togglePrices = async () => {
+    if (showPrices === null) return;
+    setPriceBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ catalogShowPrices: !showPrices }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof body.error === "string" ? body.error : "Ayar kaydedilemedi."
+        );
+      }
+      setShowPrices(Boolean(body.settings?.catalogShowPrices));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ayar kaydedilemedi.");
+    } finally {
+      setPriceBusy(false);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -100,6 +136,41 @@ export default function SettingsPage() {
   return (
     <div className="admin-page admin-page-wide">
       {error && <div className="admin-alert admin-alert-error">{error}</div>}
+
+      <section className="admin-card settings-section">
+        <div className="settings-section-head">
+          <h2 className="admin-card-title">Satış kataloğu</h2>
+          <p className="settings-section-desc">
+            satis.dervisplastik.com üzerindeki resimli katalog pazarlamacıların
+            müşteriye gösterdiği ekrandır. Fiyatlar gizliyken müşteri hiçbir
+            şekilde fiyat göremez (veri de gönderilmez).
+          </p>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-zinc-800">
+              Katalogda fiyatları göster
+            </p>
+            <p className="text-xs text-zinc-500">
+              {showPrices === null
+                ? "Durum yükleniyor…"
+                : showPrices
+                  ? "Fiyatlar şu an müşteriye görünüyor."
+                  : "Fiyatlar şu an gizli."}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showPrices === true}
+            disabled={showPrices === null || priceBusy}
+            onClick={() => void togglePrices()}
+            className={`settings-toggle ${showPrices ? "is-on" : ""}`}
+          >
+            <span className="settings-toggle-knob" />
+          </button>
+        </div>
+      </section>
 
       <section className="admin-card settings-section">
         <div className="settings-section-head">

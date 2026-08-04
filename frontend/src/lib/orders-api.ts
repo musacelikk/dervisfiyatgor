@@ -13,8 +13,9 @@ export async function submitOrder(input: CreateOrderInput): Promise<Order> {
   return body.order as Order;
 }
 
-export async function fetchOrders(): Promise<Order[]> {
-  const res = await fetch("/api/admin/orders");
+export async function fetchOrders(channel?: "store" | "sales"): Promise<Order[]> {
+  const query = channel ? `?channel=${channel}` : "";
+  const res = await fetch(`/api/admin/orders${query}`);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(typeof body.error === "string" ? body.error : "Siparişler yüklenemedi.");

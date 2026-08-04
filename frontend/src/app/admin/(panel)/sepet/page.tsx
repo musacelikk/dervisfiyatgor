@@ -1,5 +1,5 @@
 import OrdersPage from "@/components/admin/OrdersPage";
 
 export default function AdminSepetPage() {
-  return <OrdersPage mode="admin" />;
+  return <OrdersPage mode="admin" channel="store" />;
 }

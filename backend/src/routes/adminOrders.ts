@@ -9,9 +9,13 @@ const router = Router();
 
 router.use(requireAdminOrEmployee);
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const orders = await listOrders();
+    const channel =
+      req.query.channel === "sales" || req.query.channel === "store"
+        ? req.query.channel
+        : undefined;
+    const orders = await listOrders(channel);
     res.json({ orders, total: orders.length });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Siparişler yüklenemedi.";

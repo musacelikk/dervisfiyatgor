@@ -1,9 +1,12 @@
 /**
- * Gün batımı (ve dolayısıyla akşam ezanı) yaklaşık hesaplayıcı.
- * Wikipedia "Sunrise equation" / NOAA güneş konumu formülleri kullanılır
- * (doğruluk ~1-2 dakika). Sonuca MAGHRIB_OFFSET_MIN eklenerek akşam ezanı
- * yaklaşıklanır — resmi Diyanet vakti değildir, birkaç dakika sapabilir.
+ * Mesai bitişi = akşam ezanı (Şanlıurfa).
+ *
+ * Birincil kaynak: Diyanet'in resmi yıllık vakit tablosu (src/data/prayer-times-*.json).
+ * Tablo bulunmayan yıllar için gün batımı formülüyle (NOAA/"Sunrise equation")
+ * yaklaşık hesap yapılır — ~1-2 dk sapabilir, yeni yılın tablosu eklenene kadar
+ * geçici çözümdür.
  */
+import { maghribTimeFor } from "./prayerTimes";
 
 const RAD = Math.PI / 180;
 const ISTANBUL_TZ = "Europe/Istanbul";
@@ -72,8 +75,23 @@ export function calculateSunsetUTC(dateStr: string, lat: number, lng: number): D
 }
 
 /** İlgili iş gününün akşam ezanı (yaklaşık) kesim saati, UTC Date olarak. */
+/** İlgili iş gününün akşam ezanı, UTC Date olarak.
+ *  Diyanet tablosu varsa birebir o saat, yoksa gün batımı + ofset kullanılır. */
 export function maghribCutoffUTC(workDate: string): Date {
+  const official = maghribTimeFor(workDate);
+  if (official) {
+    const [h, m] = official.split(":").map(Number);
+    const [y, mo, d] = workDate.split("-").map(Number);
+    // Türkiye sabit UTC+3 (2016'dan beri yaz saati uygulaması yok)
+    return new Date(Date.UTC(y, mo - 1, d, h - 3, m, 0));
+  }
+
   const { lat, lng } = getShopLocation();
   const sunset = calculateSunsetUTC(workDate, lat, lng);
   return new Date(sunset.getTime() + maghribOffsetMin() * 60000);
+}
+
+/** Tablo mu yoksa tahmin mi kullanıldığını gösterir (loglama/teşhis için). */
+export function maghribSource(workDate: string): "diyanet" | "tahmin" {
+  return maghribTimeFor(workDate) ? "diyanet" : "tahmin";
 }

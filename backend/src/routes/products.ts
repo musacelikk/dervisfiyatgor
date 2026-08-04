@@ -3,6 +3,7 @@ import { listProductsPaged, searchProducts, type SearchBy } from "../services/db
 import { getAuditContext } from "../lib/auditContext";
 import { logAuditFromContext } from "../services/audit";
 import { listImagesForStockCodes } from "../services/productImages";
+import { getCatalogShowPrices } from "../services/settings";
 import type { ProductRow } from "../types/product";
 
 const router = Router();
@@ -33,15 +34,16 @@ function parseLimit(raw: unknown): number {
 }
 
 /** Herkese açık katalogda yalnızca müşteriye gösterilecek alanlar döner
- *  (alış fiyatı, stok miktarı, açıklamalar dışarı sızmasın). */
-function rowToCatalogJson(row: ProductRow) {
+ *  (alış fiyatı, stok miktarı, açıklamalar dışarı sızmasın). Satış fiyatları da
+ *  admin ayarına bağlıdır — gizliyken JSON'a hiç konmaz. */
+function rowToCatalogJson(row: ProductRow, showPrices: boolean) {
   return {
     stockCode: row.stock_code,
     name: row.name,
     unit: row.unit,
     group: row.group_name,
-    salePrice1: row.sale_price_1,
-    salePrice2: row.sale_price_2,
+    salePrice1: showPrices ? row.sale_price_1 : null,
+    salePrice2: showPrices ? row.sale_price_2 : null,
   };
 }
 
@@ -52,6 +54,7 @@ router.get("/catalog", async (req, res) => {
   const limit = parseLimit(req.query.limit);
 
   try {
+    const showPrices = await getCatalogShowPrices();
     const { rows, total } = await listProductsPaged({
       q: q || undefined,
       page,
@@ -61,7 +64,7 @@ router.get("/catalog", async (req, res) => {
     const products = rows.map((row) => {
       const images = imageMap.get(row.stock_code) ?? [];
       return {
-        ...rowToCatalogJson(row),
+        ...rowToCatalogJson(row, showPrices),
         images: images.map((img) => ({
           id: img.id,
           url: img.url,
@@ -78,6 +81,7 @@ router.get("/catalog", async (req, res) => {
       limit,
       totalPages: Math.max(1, Math.ceil(total / limit)),
       query: q,
+      showPrices,
     });
   } catch (err) {
     res.status(500).json({

@@ -79,6 +79,8 @@ export interface CatalogListResult {
   limit: number;
   totalPages: number;
   query: string;
+  /** Admin ayarı: satış kataloğunda fiyat gösterilsin mi */
+  showPrices: boolean;
 }
 
 export interface HealthStatus {

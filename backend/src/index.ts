@@ -30,6 +30,7 @@ import stockCountRouter from "./routes/stockCount";
 import ordersRouter from "./routes/orders";
 import shiftRouter from "./routes/shift";
 import adminShiftsRouter from "./routes/adminShifts";
+import adminSettingsRouter from "./routes/adminSettings";
 import { initDatabase, isPostgres } from "./lib/database";
 import { scheduleProductNormBackfill } from "./lib/backfillProductNorms";
 import { closeExpiredShiftEntries } from "./services/shifts";
@@ -62,6 +63,7 @@ app.use("/api/auth/employee", employeeAuthRouter);
 app.use("/api/auth/admin", adminAuthRouter);
 app.use("/api/shift", shiftRouter);
 app.use("/api/admin/shifts", adminShiftsRouter);
+app.use("/api/admin/settings", adminSettingsRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Endpoint bulunamadı." });

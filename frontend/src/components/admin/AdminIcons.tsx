@@ -32,6 +32,19 @@ export function IconUsers({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
+export function IconAttendance({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8 7V3m8 4V3M4 11h16M5 21h14a1 1 0 001-1V7a1 1 0 00-1-1H5a1 1 0 00-1 1v13a1 1 0 001 1z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m9 15.5 2 2 4-4" />
+    </svg>
+  );
+}
+
 export function IconStore({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>

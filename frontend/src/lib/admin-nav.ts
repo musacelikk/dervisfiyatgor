@@ -1,6 +1,8 @@
 import type { ComponentType } from "react";
 import {
+  IconAttendance,
   IconCart,
+  IconCatalog,
   IconDashboard,
   IconLogs,
   IconSettings,
@@ -44,11 +46,27 @@ export const ADMIN_NAV: AdminNavItem[] = [
     exact: false,
   },
   {
+    href: "/admin/toplu-siparisler",
+    label: "Toplu siparişler",
+    shortLabel: "Toplu",
+    description: "Satış kataloğundan oluşturulan müşteri siparişleri",
+    icon: IconCatalog,
+    exact: false,
+  },
+  {
     href: "/admin/giderler",
     label: "Giderler",
     shortLabel: "Gider",
     description: "Gider defteri, kategoriler ve ödeyen kişiler",
     icon: IconWallet,
+    exact: false,
+  },
+  {
+    href: "/admin/yoklama",
+    label: "Yoklama",
+    shortLabel: "Yoklama",
+    description: "Mesai girişleri, tam/yarım gün ve raporlar",
+    icon: IconAttendance,
     exact: false,
   },
   {

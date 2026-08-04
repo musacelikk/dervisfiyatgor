@@ -23,6 +23,8 @@ import {
 
 type OrdersPageProps = {
   mode?: "admin" | "manager";
+  /** "store" = mağaza sepeti, "sales" = satış kataloğu toplu siparişleri */
+  channel?: "store" | "sales";
 };
 
 type StatusFilter = "all" | OrderStatus;
@@ -36,7 +38,7 @@ const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
 ];
 
 function customerName(order: Order): string {
-  return `${order.firstName} ${order.lastName}`.trim();
+  return `${order.firstName} ${order.lastName}`.trim() || "İsimsiz müşteri";
 }
 
 function customerInitials(order: Order): string {
@@ -58,7 +60,7 @@ function formatOrderCardDate(iso: string): string {
   }
 }
 
-export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
+export default function OrdersPage({ mode = "admin", channel }: OrdersPageProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,14 +75,15 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
     setLoading(true);
     setError(null);
     try {
-      const data = mode === "manager" ? await fetchManagerOrders() : await fetchOrders();
+      const data =
+        mode === "manager" ? await fetchManagerOrders() : await fetchOrders(channel);
       setOrders(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Siparişler yüklenemedi.");
     } finally {
       setLoading(false);
     }
-  }, [mode]);
+  }, [mode, channel]);
 
   useEffect(() => {
     void load();
@@ -213,6 +216,7 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
             ) : null}
             <p className="admin-order-card-id">
               {order.orderCode ?? `#${order.id}`}
+              {order.createdBy ? ` · ${order.createdBy}` : ""}
             </p>
           </div>
           <span className={`admin-order-status ${ORDER_STATUS_CLASSES[order.status]}`}>
@@ -502,6 +506,12 @@ export default function OrdersPage({ mode = "admin" }: OrdersPageProps) {
                 <a href={`tel:${selected.phone}`} className="admin-order-phone">
                   {selected.phone}
                 </a>
+              )}
+
+              {selected.createdBy && (
+                <p className="text-xs text-zinc-500">
+                  Siparişi oluşturan: <b className="text-zinc-700">{selected.createdBy}</b>
+                </p>
               )}
 
               <p className="admin-order-section-label">

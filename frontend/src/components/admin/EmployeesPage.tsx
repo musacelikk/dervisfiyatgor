@@ -5,6 +5,7 @@ import {
   createEmployee,
   deleteEmployee,
   fetchEmployees,
+  fetchNewShiftCode,
   updateEmployee,
 } from "@/lib/admin-api";
 import {
@@ -26,6 +27,8 @@ const emptyForm = {
   username: "",
   password: "",
   permissions: [...DEFAULT_EMPLOYEE_PERMISSIONS] as PermissionId[],
+  shiftCode: "",
+  honorific: "" as "" | "Bey" | "Hanım",
 };
 
 export default function EmployeesPage() {
@@ -63,6 +66,8 @@ export default function EmployeesPage() {
       username: employee.username,
       password: "",
       permissions: employee.permissions,
+      shiftCode: employee.shiftCode ?? "",
+      honorific: employee.honorific ?? "",
     });
     setFormMode({ type: "edit", employee });
   };
@@ -70,6 +75,15 @@ export default function EmployeesPage() {
   const closeForm = () => {
     setFormMode(null);
     setForm(emptyForm);
+  };
+
+  const generateShiftCode = async () => {
+    try {
+      const code = await fetchNewShiftCode();
+      setForm((f) => ({ ...f, shiftCode: code }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kod üretilemedi.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,12 +99,16 @@ export default function EmployeesPage() {
           username: form.username,
           password: form.password,
           permissions: form.permissions,
+          shiftCode: form.shiftCode || null,
+          honorific: form.honorific || null,
         });
       } else {
-        const payload: Partial<typeof form & { active: boolean }> = {
+        const payload: Parameters<typeof updateEmployee>[1] = {
           name: form.name,
           username: form.username,
           permissions: form.permissions,
+          shiftCode: form.shiftCode || null,
+          honorific: form.honorific || null,
         };
         if (form.password) payload.password = form.password;
         await updateEmployee(formMode.employee.id, payload);
@@ -158,6 +176,7 @@ export default function EmployeesPage() {
                 <tr>
                   <th>Ad soyad</th>
                   <th>Kullanıcı adı</th>
+                  <th>Mesai ID</th>
                   <th>Yetkiler</th>
                   <th>Durum</th>
                   <th className="text-right">İşlemler</th>
@@ -168,6 +187,9 @@ export default function EmployeesPage() {
                   <tr key={emp.id}>
                     <td className="font-medium text-zinc-900">{emp.name}</td>
                     <td className="font-mono text-xs">{emp.username}</td>
+                    <td className="font-mono text-xs tracking-widest text-zinc-700">
+                      {emp.shiftCode ?? "—"}
+                    </td>
                     <td className="max-w-[14rem] text-xs text-zinc-600">
                       {permissionSummary(emp.permissions)}
                     </td>
@@ -215,7 +237,14 @@ export default function EmployeesPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="font-semibold text-zinc-900">{emp.name}</p>
-                    <p className="mt-0.5 font-mono text-xs text-zinc-500">@{emp.username}</p>
+                    <p className="mt-0.5 font-mono text-xs text-zinc-500">
+                      @{emp.username}
+                      {emp.shiftCode && (
+                        <span className="ml-2 tracking-widest text-zinc-700">
+                          ID {emp.shiftCode}
+                        </span>
+                      )}
+                    </p>
                     <p className="mt-1 text-xs text-zinc-500">
                       {permissionSummary(emp.permissions)}
                     </p>
@@ -301,6 +330,60 @@ export default function EmployeesPage() {
                   required={formMode.type === "create"}
                   minLength={formMode.type === "create" ? 4 : undefined}
                 />
+              </div>
+
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">
+                <p className="text-xs font-semibold text-zinc-700">
+                  Mesai girişi (giris.dervisplastik.com)
+                </p>
+                <div className="admin-form-grid mt-3">
+                  <div>
+                    <label className="admin-label">4 haneli mesai ID</label>
+                    <div className="flex gap-2">
+                      <input
+                        className="admin-input font-mono tracking-[0.3em]"
+                        value={form.shiftCode}
+                        inputMode="numeric"
+                        maxLength={4}
+                        placeholder="0000"
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            shiftCode: e.target.value.replace(/\D/g, "").slice(0, 4),
+                          }))
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="admin-btn-secondary shrink-0 px-3 text-xs"
+                        onClick={() => void generateShiftCode()}
+                      >
+                        Üret
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="admin-label">Hitap</label>
+                    <select
+                      className="admin-input"
+                      value={form.honorific}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          honorific: e.target.value as "" | "Bey" | "Hanım",
+                        }))
+                      }
+                    >
+                      <option value="">—</option>
+                      <option value="Bey">Bey</option>
+                      <option value="Hanım">Hanım</option>
+                    </select>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-zinc-500">
+                  Personel bu ID ile mesaiye başlar. Boş bırakılırsa yalnızca kullanıcı
+                  adı ve şifresiyle giriş yapabilir.
+                </p>
               </div>
 
               <div>

@@ -9,12 +9,18 @@ async function requireAdminSession() {
   return isValidAdminToken(session);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await requireAdminSession())) {
     return NextResponse.json({ error: "Oturum gerekli." }, { status: 401 });
   }
   try {
-    const data = await adminBackendFetch<{ orders: Order[]; total: number }>("/api/admin/orders");
+    const { searchParams } = new URL(request.url);
+    const channel = searchParams.get("channel");
+    const query =
+      channel === "sales" || channel === "store" ? `?channel=${channel}` : "";
+    const data = await adminBackendFetch<{ orders: Order[]; total: number }>(
+      `/api/admin/orders${query}`
+    );
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json(

@@ -85,11 +85,22 @@ export async function fetchEmployees(): Promise<Employee[]> {
   return (body.employees ?? []) as Employee[];
 }
 
+export async function fetchNewShiftCode(): Promise<string> {
+  const res = await fetch("/api/admin/employees/shift-code/new");
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof body.error === "string" ? body.error : "Kod üretilemedi.");
+  }
+  return body.shiftCode as string;
+}
+
 export async function createEmployee(input: {
   name: string;
   username: string;
   password: string;
   permissions?: PermissionId[];
+  shiftCode?: string | null;
+  honorific?: "Bey" | "Hanım" | null;
 }): Promise<Employee> {
   const res = await fetch("/api/admin/employees", {
     method: "POST",
@@ -111,6 +122,8 @@ export async function updateEmployee(
     password: string;
     active: boolean;
     permissions: PermissionId[];
+    shiftCode: string | null;
+    honorific: "Bey" | "Hanım" | null;
   }>
 ): Promise<Employee> {
   const res = await fetch(`/api/admin/employees/${id}`, {

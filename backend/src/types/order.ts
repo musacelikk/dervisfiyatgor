@@ -1,6 +1,10 @@
 export const ORDER_STATUSES = ["pending", "preparing", "completed", "cancelled"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+/** store = müşteri mağazası sepeti, sales = satış personeli kataloğu */
+export const ORDER_CHANNELS = ["store", "sales"] as const;
+export type OrderChannel = (typeof ORDER_CHANNELS)[number];
+
 export type OrderItemRow = {
   id: number;
   order_id: number;
@@ -19,6 +23,8 @@ export type OrderRow = {
   last_name: string;
   phone: string | null;
   status: OrderStatus;
+  channel: OrderChannel;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -41,6 +47,8 @@ export type Order = {
   lastName: string;
   phone: string | null;
   status: OrderStatus;
+  channel: OrderChannel;
+  createdBy: string | null;
   items: OrderItem[];
   itemCount: number;
   totalAmount: number | null;
@@ -52,6 +60,10 @@ export type CreateOrderInput = {
   firstName: string;
   lastName: string;
   phone?: string;
+  /** Varsayılan "store". "sales" kanalında isim/telefon boş bırakılabilir. */
+  channel?: OrderChannel;
+  /** Satış kanalında siparişi oluşturan personel (opsiyonel). */
+  createdBy?: string;
   items: { stockCode: string; quantity: number }[];
 };
 
@@ -87,6 +99,8 @@ export function buildOrder(
     lastName: row.last_name,
     phone: row.phone,
     status: row.status as OrderStatus,
+    channel: (row.channel as OrderChannel) ?? "store",
+    createdBy: row.created_by ?? null,
     items,
     itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
     totalAmount: hasPrice ? totalAmount : null,

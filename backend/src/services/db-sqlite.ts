@@ -14,7 +14,7 @@ function resolveDataDir(): string {
 
 let sqliteDb: Database.Database | null = null;
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 15;
 const NAME_SEARCH_LIMIT = 30;
 
 function tableColumns(database: Database.Database, table: string): Set<string> {
@@ -165,6 +165,44 @@ function applyMigrationStep(database: Database.Database, fromVersion: number): v
         CREATE INDEX IF NOT EXISTS idx_shift_entries_date ON shift_entries(work_date DESC);
       `);
       return;
+    case 13:
+      addColumnIfMissing(database, "shift_entries", "status", "TEXT");
+      addColumnIfMissing(database, "shift_entries", "note", "TEXT");
+      addColumnIfMissing(database, "shift_entries", "created_by", "TEXT");
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS shift_denied_attempts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          employee_id INTEGER NOT NULL,
+          work_date TEXT NOT NULL,
+          attempted_at TEXT NOT NULL,
+          lat REAL,
+          lng REAL,
+          distance_m REAL,
+          FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_shift_denied_date
+          ON shift_denied_attempts(work_date DESC);
+      `);
+      return;
+    case 14: {
+      const orderCols = tableColumns(database, "orders");
+      if (orderCols.size > 0) {
+        if (!orderCols.has("channel")) {
+          database.exec(`ALTER TABLE orders ADD COLUMN channel TEXT NOT NULL DEFAULT 'store'`);
+        }
+        if (!orderCols.has("created_by")) {
+          database.exec(`ALTER TABLE orders ADD COLUMN created_by TEXT`);
+        }
+      }
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+      return;
+    }
     default:
       return;
   }
@@ -271,7 +309,14 @@ export function initSqliteDatabase(): void {
       last_name TEXT NOT NULL,
       phone TEXT,
       status TEXT NOT NULL DEFAULT 'pending',
+      channel TEXT NOT NULL DEFAULT 'store',
+      created_by TEXT,
       created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
       updated_at TEXT DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS order_items (
@@ -359,10 +404,25 @@ export function initSqliteDatabase(): void {
       lat REAL,
       lng REAL,
       distance_m REAL,
+      status TEXT,
+      note TEXT,
+      created_by TEXT,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
       UNIQUE (employee_id, work_date)
     );
     CREATE INDEX IF NOT EXISTS idx_shift_entries_date ON shift_entries(work_date DESC);
+    CREATE TABLE IF NOT EXISTS shift_denied_attempts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      work_date TEXT NOT NULL,
+      attempted_at TEXT NOT NULL,
+      lat REAL,
+      lng REAL,
+      distance_m REAL,
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_shift_denied_date
+      ON shift_denied_attempts(work_date DESC);
   `);
 }
 

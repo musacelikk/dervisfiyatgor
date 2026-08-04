@@ -61,8 +61,11 @@ function ensureOrdersSchema(): void {
 function validateCreateInput(input: CreateOrderInput): void {
   const firstName = input.firstName?.trim() ?? "";
   const lastName = input.lastName?.trim() ?? "";
-  if (firstName.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
-  if (lastName.length < 2) throw new Error("Soyad en az 2 karakter olmalı.");
+  // Satış kanalında müşteri bilgisi opsiyonel (personel dükkanda oluşturur)
+  if (input.channel !== "sales") {
+    if (firstName.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
+    if (lastName.length < 2) throw new Error("Soyad en az 2 karakter olmalı.");
+  }
   if (!Array.isArray(input.items) || input.items.length === 0) {
     throw new Error("Sepette en az bir ürün olmalı.");
   }
@@ -82,11 +85,13 @@ export function createOrder(input: CreateOrderInput): Order {
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
   const phone = input.phone?.trim() || null;
+  const channel = input.channel === "sales" ? "sales" : "store";
+  const createdBy = input.createdBy?.trim() || null;
 
   const orderCode = getUniqueOrderCode();
   const insertOrder = database.prepare(`
-    INSERT INTO orders (order_code, first_name, last_name, phone, status, updated_at)
-    VALUES (?, ?, ?, ?, 'pending', datetime('now'))
+    INSERT INTO orders (order_code, first_name, last_name, phone, status, channel, created_by, updated_at)
+    VALUES (?, ?, ?, ?, 'pending', ?, ?, datetime('now'))
   `);
   const insertItem = database.prepare(`
     INSERT INTO order_items (
@@ -95,7 +100,7 @@ export function createOrder(input: CreateOrderInput): Order {
   `);
 
   const tx = database.transaction((payload: CreateOrderInput) => {
-    const result = insertOrder.run(orderCode, firstName, lastName, phone);
+    const result = insertOrder.run(orderCode, firstName, lastName, phone, channel, createdBy);
     const orderId = Number(result.lastInsertRowid);
 
     for (const item of payload.items) {
@@ -123,12 +128,21 @@ export function createOrder(input: CreateOrderInput): Order {
   return order;
 }
 
-export function listOrders(): Order[] {
+export function listOrders(channel?: "store" | "sales"): Order[] {
   ensureOrdersSchema();
   const database = db();
-  const rows = database
-    .prepare(`SELECT * FROM orders ORDER BY datetime(created_at) DESC LIMIT 200`)
-    .all() as OrderRow[];
+  const rows = (
+    channel
+      ? database
+          .prepare(
+            `SELECT * FROM orders WHERE COALESCE(channel, 'store') = ?
+             ORDER BY datetime(created_at) DESC LIMIT 200`
+          )
+          .all(channel)
+      : database
+          .prepare(`SELECT * FROM orders ORDER BY datetime(created_at) DESC LIMIT 200`)
+          .all()
+  ) as OrderRow[];
 
   return rows.map((row) => {
     const items = database

@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchEmployees } from "@/lib/admin-api";
+import { fetchAttendanceSummary } from "@/lib/attendance-api";
 import { getHealth } from "@/lib/api";
-import { IconStock, IconStore, IconUsers } from "./AdminIcons";
+import { IconAttendance, IconStock, IconStore, IconUsers } from "./AdminIcons";
+import type { AttendanceSummary } from "@/types/shift";
 
 export default function AdminDashboard() {
   const [productCount, setProductCount] = useState<number | null>(null);
   const [employeeCount, setEmployeeCount] = useState<number | null>(null);
+  const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
   const [apiOnline, setApiOnline] = useState(true);
 
   useEffect(() => {
@@ -24,6 +27,10 @@ export default function AdminDashboard() {
         setApiOnline(false);
       }
     })();
+    // Yoklama özeti bağımsız yüklenir; hata verse dashboard'un kalanı çalışır
+    fetchAttendanceSummary()
+      .then(setAttendance)
+      .catch(() => setAttendance(null));
   }, []);
 
   return (
@@ -74,6 +81,31 @@ export default function AdminDashboard() {
           <span className="admin-stat-link">Personeli yönet →</span>
         </Link>
 
+        <Link href="/admin/yoklama" className="admin-stat-card">
+          <div className="admin-stat-card-top">
+            <div>
+              <p className="admin-stat-label">Bugün mesaide</p>
+              <p className="admin-stat-value">
+                {attendance ? attendance.present : "—"}
+                {attendance && (
+                  <span className="admin-stat-value-sub">
+                    /{attendance.totalEmployees}
+                  </span>
+                )}
+              </p>
+              <p className="admin-stat-hint">
+                {attendance
+                  ? `${attendance.full} tam · ${attendance.half} yarım · ${attendance.absent} gelmedi`
+                  : "yoklama"}
+              </p>
+            </div>
+            <div className="admin-stat-icon">
+              <IconAttendance />
+            </div>
+          </div>
+          <span className="admin-stat-link">Yoklamayı aç →</span>
+        </Link>
+
         <Link href="/" className="admin-stat-card">
           <div className="admin-stat-card-top">
             <div>
@@ -88,6 +120,16 @@ export default function AdminDashboard() {
           <span className="admin-stat-link">Mağazayı aç →</span>
         </Link>
       </div>
+
+      {attendance && attendance.deniedAttempts > 0 && (
+        <div className="admin-alert admin-alert-warn mt-3">
+          Bugün konum dışından {attendance.deniedAttempts} mesai başlatma denemesi
+          engellendi.{" "}
+          <Link href="/admin/yoklama" className="admin-link font-semibold">
+            Yoklamayı incele
+          </Link>
+        </div>
+      )}
 
       <div className="admin-dashboard-grid">
         <section className="admin-card">

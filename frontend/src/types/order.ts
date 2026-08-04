@@ -1,5 +1,8 @@
 export type OrderStatus = "pending" | "preparing" | "completed" | "cancelled";
 
+/** store = müşteri mağazası sepeti, sales = satış personeli kataloğu */
+export type OrderChannel = "store" | "sales";
+
 export type OrderItem = {
   id: number;
   stockCode: string;
@@ -18,6 +21,8 @@ export type Order = {
   lastName: string;
   phone: string | null;
   status: OrderStatus;
+  channel: OrderChannel;
+  createdBy: string | null;
   items: OrderItem[];
   itemCount: number;
   totalAmount: number | null;
@@ -29,6 +34,8 @@ export type CreateOrderInput = {
   firstName: string;
   lastName: string;
   phone?: string;
+  channel?: OrderChannel;
+  createdBy?: string;
   items: { stockCode: string; quantity: number }[];
 };
 
