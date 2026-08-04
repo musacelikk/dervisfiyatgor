@@ -2790,6 +2790,35 @@ textarea {
   color: #71717a;
 }
 
+.expense-breakdown-toggle {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.expense-breakdown-head-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.expense-breakdown-chevron {
+  height: 1rem;
+  width: 1rem;
+  flex-shrink: 0;
+  color: #a1a1aa;
+  transition: transform 0.15s ease;
+}
+
+.expense-breakdown-chevron-open {
+  transform: rotate(180deg);
+}
+
 .expense-breakdown-list {
   display: flex;
   flex-direction: column;
@@ -5525,6 +5554,51 @@ textarea {
   background: #fef2f2;
 }
 
+.closed-days-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
+.closed-days-form .admin-input:first-child {
+  max-width: 11rem;
+}
+
+.closed-days-form .admin-input:nth-child(2) {
+  flex: 1 1 12rem;
+}
+
+.closed-days-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.closed-days-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid #f4f4f5;
+  border-radius: 0.75rem;
+  background: #fafafa;
+  padding: 0.625rem 0.875rem;
+}
+
+.closed-days-date {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #18181b;
+  white-space: nowrap;
+}
+
+.closed-days-note {
+  font-size: 0.8125rem;
+  color: #71717a;
+}
+
 .settings-legend {
   display: flex;
   flex-wrap: wrap;
@@ -6651,6 +6725,11 @@ tr.stock-count-row-unchanged > td {
 .attendance-badge-absent {
   background: #f4f4f5;
   color: #71717a;
+}
+
+.attendance-badge-off {
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .attendance-report {

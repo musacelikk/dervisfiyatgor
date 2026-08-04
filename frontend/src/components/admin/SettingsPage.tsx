@@ -7,7 +7,15 @@ import {
   startStockCount,
   stopStockCount,
 } from "@/lib/admin-api";
+import { addClosedDay, fetchClosedDays, removeClosedDay } from "@/lib/attendance-api";
 import type { StockCountState } from "@/types/product";
+import type { ClosedDay } from "@/types/shift";
+
+function formatClosedDayDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-");
+  if (!y || !m || !d) return dateStr;
+  return `${d}.${m}.${y}`;
+}
 
 function formatStartedAt(iso: string | null): string {
   if (!iso) return "";
@@ -30,6 +38,13 @@ export default function SettingsPage() {
   const [showPrices, setShowPrices] = useState<boolean | null>(null);
   const [priceBusy, setPriceBusy] = useState(false);
 
+  const [closedDays, setClosedDays] = useState<ClosedDay[]>([]);
+  const [closedDaysLoading, setClosedDaysLoading] = useState(true);
+  const [closedDayDate, setClosedDayDate] = useState("");
+  const [closedDayNote, setClosedDayNote] = useState("");
+  const [closedDaySaving, setClosedDaySaving] = useState(false);
+  const [closedDayError, setClosedDayError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -51,7 +66,42 @@ export default function SettingsPage() {
     } catch {
       /* toggle "yüklenemedi" durumunda kalır */
     }
+    // İzinli günler bağımsız yüklenir
+    setClosedDaysLoading(true);
+    try {
+      setClosedDays(await fetchClosedDays());
+    } catch (err) {
+      setClosedDayError(err instanceof Error ? err.message : "İzinli günler yüklenemedi.");
+    } finally {
+      setClosedDaysLoading(false);
+    }
   }, []);
+
+  const handleAddClosedDay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!closedDayDate) return;
+    setClosedDaySaving(true);
+    setClosedDayError(null);
+    try {
+      setClosedDays(await addClosedDay(closedDayDate, closedDayNote || null));
+      setClosedDayDate("");
+      setClosedDayNote("");
+    } catch (err) {
+      setClosedDayError(err instanceof Error ? err.message : "İzinli gün eklenemedi.");
+    } finally {
+      setClosedDaySaving(false);
+    }
+  };
+
+  const handleRemoveClosedDay = async (day: ClosedDay) => {
+    if (!confirm(`${formatClosedDayDate(day.date)} izinli günü kaldırılsın mı?`)) return;
+    setClosedDayError(null);
+    try {
+      setClosedDays(await removeClosedDay(day.date));
+    } catch (err) {
+      setClosedDayError(err instanceof Error ? err.message : "İzinli gün kaldırılamadı.");
+    }
+  };
 
   const togglePrices = async () => {
     if (showPrices === null) return;
@@ -170,6 +220,68 @@ export default function SettingsPage() {
             <span className="settings-toggle-knob" />
           </button>
         </div>
+      </section>
+
+      <section className="admin-card settings-section">
+        <div className="settings-section-head">
+          <h2 className="admin-card-title">İzinli günler</h2>
+          <p className="settings-section-desc">
+            Dükkanın kapalı/izinli olduğu günleri ekleyin. Bu günlerde giriş yapmayan
+            personel Yoklama&apos;da &quot;Gelmedi&quot; değil, &quot;İzinli&quot; olarak görünür.
+          </p>
+        </div>
+
+        <form onSubmit={handleAddClosedDay} className="closed-days-form">
+          <input
+            type="date"
+            className="admin-input"
+            value={closedDayDate}
+            onChange={(e) => setClosedDayDate(e.target.value)}
+            required
+            aria-label="Tarih"
+          />
+          <input
+            type="text"
+            className="admin-input"
+            placeholder="Not (isteğe bağlı, örn. Bayram)"
+            value={closedDayNote}
+            onChange={(e) => setClosedDayNote(e.target.value)}
+            maxLength={200}
+          />
+          <button
+            type="submit"
+            className="admin-btn-primary"
+            disabled={closedDaySaving || !closedDayDate}
+          >
+            {closedDaySaving ? "Ekleniyor…" : "Ekle"}
+          </button>
+        </form>
+
+        {closedDayError && (
+          <p className="mt-2 text-sm text-red-600">{closedDayError}</p>
+        )}
+
+        {closedDaysLoading ? (
+          <p className="admin-muted mt-3 text-sm">Yükleniyor…</p>
+        ) : closedDays.length === 0 ? (
+          <p className="admin-muted mt-3 text-sm">Henüz izinli gün eklenmedi.</p>
+        ) : (
+          <ul className="closed-days-list">
+            {closedDays.map((day) => (
+              <li key={day.date} className="closed-days-row">
+                <span className="closed-days-date">{formatClosedDayDate(day.date)}</span>
+                {day.note && <span className="closed-days-note">{day.note}</span>}
+                <button
+                  type="button"
+                  className="admin-btn-ghost text-xs ml-auto"
+                  onClick={() => void handleRemoveClosedDay(day)}
+                >
+                  Kaldır
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="admin-card settings-section">

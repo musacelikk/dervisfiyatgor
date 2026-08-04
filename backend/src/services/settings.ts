@@ -43,3 +43,48 @@ export async function getCatalogShowPrices(): Promise<boolean> {
 export async function setCatalogShowPrices(show: boolean): Promise<void> {
   await setSetting(CATALOG_SHOW_PRICES, show ? "true" : "false");
 }
+
+const SHOP_CLOSED_DAYS = "shop_closed_days";
+
+export interface ClosedDay {
+  date: string; // YYYY-MM-DD
+  note: string | null;
+}
+
+/** Dükkanın izinli/kapalı olduğu günler — bu günlerde personel "Gelmedi" sayılmaz. */
+export async function getClosedDays(): Promise<ClosedDay[]> {
+  const value = await getSetting(SHOP_CLOSED_DAYS);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (d): d is ClosedDay => Boolean(d) && typeof d === "object" && typeof d.date === "string"
+      )
+      .map((d) => ({ date: d.date, note: typeof d.note === "string" ? d.note : null }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  } catch {
+    return [];
+  }
+}
+
+async function setClosedDays(days: ClosedDay[]): Promise<void> {
+  const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date));
+  await setSetting(SHOP_CLOSED_DAYS, JSON.stringify(sorted));
+}
+
+export async function addClosedDay(date: string, note: string | null): Promise<ClosedDay[]> {
+  const days = await getClosedDays();
+  const filtered = days.filter((d) => d.date !== date);
+  filtered.push({ date, note: note?.trim() || null });
+  await setClosedDays(filtered);
+  return getClosedDays();
+}
+
+export async function removeClosedDay(date: string): Promise<ClosedDay[]> {
+  const days = await getClosedDays();
+  const filtered = days.filter((d) => d.date !== date);
+  await setClosedDays(filtered);
+  return filtered;
+}

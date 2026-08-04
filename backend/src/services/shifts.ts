@@ -14,6 +14,7 @@ import {
   type AttendanceStatusOrAbsent,
 } from "../lib/attendance";
 import { listEmployees } from "./employees";
+import { getClosedDays } from "./settings";
 import type {
   AttendanceReport,
   AttendanceRow,
@@ -348,6 +349,7 @@ export async function listAttendance(filters: {
     from: filters.from,
     to: filters.to,
   });
+  const closedDays = new Set((await getClosedDays()).map((d) => d.date));
 
   const byKey = new Map<string, ShiftEntry>();
   for (const entry of entries) {
@@ -361,7 +363,11 @@ export async function listAttendance(filters: {
       // Personel işe alınmadan önceki günler yoklamaya girmez
       if (employee.createdAt && day < employee.createdAt.slice(0, 10)) continue;
       const entry = byKey.get(`${employee.id}|${day}`) ?? null;
-      const status: AttendanceStatusOrAbsent = entry ? entry.status : "absent";
+      const status: AttendanceStatusOrAbsent = entry
+        ? entry.status
+        : closedDays.has(day)
+          ? "off"
+          : "absent";
       if (filters.status && filters.status !== status) continue;
       rows.push({
         employeeId: employee.id,
@@ -407,6 +413,7 @@ export async function getAttendanceSummary(
   const full = rows.filter((r) => r.status === "full").length;
   const half = rows.filter((r) => r.status === "half").length;
   const absent = rows.filter((r) => r.status === "absent").length;
+  const off = rows.filter((r) => r.status === "off").length;
   return {
     workDate,
     totalEmployees: rows.length,
@@ -414,6 +421,7 @@ export async function getAttendanceSummary(
     absent,
     full,
     half,
+    off,
     deniedAttempts: await countDeniedAttempts(workDate, workDate),
   };
 }
@@ -430,9 +438,17 @@ export async function getAttendanceReport(
   for (const row of rows) {
     const current =
       perEmployee.get(row.employeeId) ??
-      { employeeId: row.employeeId, employeeName: row.employeeName, full: 0, half: 0, absent: 0 };
+      {
+        employeeId: row.employeeId,
+        employeeName: row.employeeName,
+        full: 0,
+        half: 0,
+        absent: 0,
+        off: 0,
+      };
     if (row.status === "full") current.full++;
     else if (row.status === "half") current.half++;
+    else if (row.status === "off") current.off++;
     else current.absent++;
     perEmployee.set(row.employeeId, current);
   }
@@ -446,6 +462,7 @@ export async function getAttendanceReport(
     full: list.reduce((sum, e) => sum + e.full, 0),
     half: list.reduce((sum, e) => sum + e.half, 0),
     absent: list.reduce((sum, e) => sum + e.absent, 0),
+    off: list.reduce((sum, e) => sum + e.off, 0),
     perEmployee: list,
   };
 }

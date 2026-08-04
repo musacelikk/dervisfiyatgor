@@ -360,11 +360,12 @@ export default function ExpensesPage() {
   // Filtre ve sıralama
   const [filterCategoryId, setFilterCategoryId] = useState<number | null>(null);
   const [filterPersonId, setFilterPersonId] = useState<number | null>(null);
-  const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const [timeRange, setTimeRange] = useState<TimeRange>("month");
   const [selectedMonth, setSelectedMonth] = useState(currentMonthISO);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
+  const [breakdownOpen, setBreakdownOpen] = useState(true);
 
   // Kategori / kişi yönetimi
   const [manager, setManager] = useState<ManagerKind | null>(null);
@@ -422,13 +423,13 @@ export default function ExpensesPage() {
   const filtersActive =
     filterCategoryId != null ||
     filterPersonId != null ||
-    timeRange !== "all" ||
+    timeRange !== "month" ||
     sortKey !== "date-desc";
 
   const clearFilters = () => {
     setFilterCategoryId(null);
     setFilterPersonId(null);
-    setTimeRange("all");
+    setTimeRange("month");
     setSelectedMonth(currentMonthISO());
     setCustomFrom("");
     setCustomTo("");
@@ -894,10 +895,28 @@ export default function ExpensesPage() {
 
       {!loading && periodExpenses.length > 0 && categoryBreakdown.length > 0 && (
         <div className="admin-card expense-breakdown mt-4">
-          <div className="expense-breakdown-head">
+          <button
+            type="button"
+            className="expense-breakdown-head expense-breakdown-toggle"
+            aria-expanded={breakdownOpen}
+            onClick={() => setBreakdownOpen((o) => !o)}
+          >
             <p className="expense-summary-label">Kategori harcamaları</p>
-            <p className="expense-breakdown-period">{periodLabel}</p>
-          </div>
+            <span className="expense-breakdown-head-right">
+              <p className="expense-breakdown-period">{periodLabel}</p>
+              <svg
+                className={`expense-breakdown-chevron ${breakdownOpen ? "expense-breakdown-chevron-open" : ""}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+              </svg>
+            </span>
+          </button>
+          {breakdownOpen && (
           <div className="expense-breakdown-list">
             {categoryBreakdown.map((row) => {
               const share = periodTotal > 0 ? (row.total / periodTotal) * 100 : 0;
@@ -945,6 +964,7 @@ export default function ExpensesPage() {
               );
             })}
           </div>
+          )}
         </div>
       )}
 

@@ -4,6 +4,7 @@ import type {
   AttendanceStatus,
   AttendanceStatusOrAbsent,
   AttendanceSummary,
+  ClosedDay,
   ShiftEntry,
 } from "@/types/shift";
 
@@ -97,4 +98,34 @@ export async function updateAttendanceEntry(
 
 export async function deleteAttendanceEntry(id: number): Promise<void> {
   await jsonFetch(`/api/admin/shifts/${id}`, "Silinemedi.", { method: "DELETE" });
+}
+
+export async function fetchClosedDays(): Promise<ClosedDay[]> {
+  const body = await jsonFetch<{ closedDays: ClosedDay[] }>(
+    "/api/admin/settings/closed-days",
+    "İzinli günler yüklenemedi."
+  );
+  return body.closedDays;
+}
+
+export async function addClosedDay(date: string, note: string | null): Promise<ClosedDay[]> {
+  const body = await jsonFetch<{ closedDays: ClosedDay[] }>(
+    "/api/admin/settings/closed-days",
+    "İzinli gün eklenemedi.",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, note }),
+    }
+  );
+  return body.closedDays;
+}
+
+export async function removeClosedDay(date: string): Promise<ClosedDay[]> {
+  const body = await jsonFetch<{ closedDays: ClosedDay[] }>(
+    `/api/admin/settings/closed-days/${encodeURIComponent(date)}`,
+    "İzinli gün kaldırılamadı.",
+    { method: "DELETE" }
+  );
+  return body.closedDays;
 }

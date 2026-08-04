@@ -31,6 +31,7 @@ export type AttendanceSummary = {
   absent: number;
   full: number;
   half: number;
+  off: number;
   deniedAttempts: number;
 };
 
@@ -40,11 +41,13 @@ export type AttendanceReport = {
   full: number;
   half: number;
   absent: number;
+  off: number;
   perEmployee: {
     employeeId: number;
     employeeName: string;
     full: number;
     half: number;
     absent: number;
+    off: number;
   }[];
 };

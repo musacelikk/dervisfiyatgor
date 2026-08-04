@@ -3,8 +3,9 @@
 
 export const ATTENDANCE_STATUSES = ["full", "half"] as const;
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
-/** Listelemede kullanılan, kaydı olmayan personel için türetilen durum. */
-export type AttendanceStatusOrAbsent = AttendanceStatus | "absent";
+/** Listelemede kullanılan, kaydı olmayan personel için türetilen durum.
+ *  "off" — dükkanın izinli/kapalı olduğu bir gün, kaydı olmayan personel devamsız sayılmaz. */
+export type AttendanceStatusOrAbsent = AttendanceStatus | "absent" | "off";
 
 const DEFAULT_HALF_DAY_AFTER = "11:00";
 const ISTANBUL_TZ = "Europe/Istanbul";

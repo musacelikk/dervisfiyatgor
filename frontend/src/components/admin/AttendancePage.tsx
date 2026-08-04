@@ -83,6 +83,7 @@ function timeValue(iso: string | null): string {
 function statusClass(status: AttendanceStatusOrAbsent): string {
   if (status === "full") return "attendance-badge attendance-badge-full";
   if (status === "half") return "attendance-badge attendance-badge-half";
+  if (status === "off") return "attendance-badge attendance-badge-off";
   return "attendance-badge attendance-badge-absent";
 }
 
@@ -254,6 +255,12 @@ export default function AttendancePage() {
           <span className="attendance-stat-label">Gelmeyen</span>
           <span className="attendance-stat-value">{summary?.absent ?? "—"}</span>
         </div>
+        {Boolean(summary?.off) && (
+          <div className="attendance-stat">
+            <span className="attendance-stat-label">İzinli</span>
+            <span className="attendance-stat-value">{summary?.off}</span>
+          </div>
+        )}
         <div className="attendance-stat">
           <span className="attendance-stat-label">Tam gün</span>
           <span className="attendance-stat-value attendance-stat-full">
@@ -354,6 +361,7 @@ export default function AttendancePage() {
               <option value="full">Tam Gün</option>
               <option value="half">Yarım Gün</option>
               <option value="absent">Gelmedi</option>
+              <option value="off">İzinli</option>
             </select>
           </label>
         </div>
@@ -383,6 +391,11 @@ export default function AttendancePage() {
             <span className="attendance-report-total">
               <b>{report.absent}</b> Gelmedi
             </span>
+            {report.off > 0 && (
+              <span className="attendance-report-total">
+                <b>{report.off}</b> İzinli
+              </span>
+            )}
           </div>
           {report.perEmployee.length > 1 && (
             <div className="attendance-report-list">
@@ -393,6 +406,12 @@ export default function AttendancePage() {
                     <b className="text-emerald-700">{row.full}</b> tam ·{" "}
                     <b className="text-amber-700">{row.half}</b> yarım ·{" "}
                     <b className="text-zinc-500">{row.absent}</b> gelmedi
+                    {row.off > 0 && (
+                      <>
+                        {" "}
+                        · <b className="text-blue-700">{row.off}</b> izinli
+                      </>
+                    )}
                   </span>
                 </div>
               ))}

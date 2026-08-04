@@ -29,7 +29,7 @@ function parseDate(value: unknown, fallback: string): string {
 }
 
 function parseStatusFilter(value: unknown): AttendanceStatusOrAbsent | undefined {
-  if (value === "full" || value === "half" || value === "absent") return value;
+  if (value === "full" || value === "half" || value === "absent" || value === "off") return value;
   return undefined;
 }
 

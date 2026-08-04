@@ -1,0 +1,31 @@
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { ADMIN_COOKIE, isValidAdminToken } from "@/lib/admin-session";
+import { adminBackendFetch } from "@/lib/admin-backend";
+
+async function requireAdmin() {
+  const session = (await cookies()).get(ADMIN_COOKIE)?.value;
+  return Boolean(await isValidAdminToken(session));
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ date: string }> }
+) {
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: "Oturum gerekli." }, { status: 401 });
+  }
+  const { date } = await params;
+  try {
+    const data = await adminBackendFetch<Record<string, unknown>>(
+      `/api/admin/settings/closed-days/${encodeURIComponent(date)}`,
+      { method: "DELETE" }
+    );
+    return NextResponse.json(data);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "İzinli gün kaldırılamadı." },
+      { status: 400 }
+    );
+  }
+}
