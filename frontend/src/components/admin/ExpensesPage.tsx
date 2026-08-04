@@ -42,14 +42,14 @@ type TimeRange =
 type SortKey = "date-desc" | "date-asc" | "amount-desc" | "amount-asc";
 
 const TIME_RANGE_OPTIONS: { id: TimeRange; label: string }[] = [
-  { id: "all", label: "Tüm zamanlar" },
-  { id: "today", label: "Bugün" },
-  { id: "week", label: "Son 7 gün" },
   { id: "month", label: "Bu ay" },
   { id: "lastMonth", label: "Geçen ay" },
-  { id: "pickMonth", label: "Ay seç" },
-  { id: "custom", label: "Özel aralık" },
+  { id: "week", label: "Son 7 gün" },
+  { id: "today", label: "Bugün" },
   { id: "year", label: "Bu yıl" },
+  { id: "all", label: "Tüm zamanlar" },
+  { id: "pickMonth", label: "Ay seç" },
+  { id: "custom", label: "Tarih aralığı" },
 ];
 
 const MONTH_LABELS = [
@@ -725,129 +725,170 @@ export default function ExpensesPage() {
 
       {error && <div className="admin-alert admin-alert-error mt-4">{error}</div>}
 
-      <div className="expense-summary mt-4">
-        <div className="admin-card expense-summary-card">
-          <p className="expense-summary-label">Bu ay</p>
-          <p className="expense-summary-value">{currencyFmt.format(totalThisMonth)}</p>
+      {/* Dönem + özet: tek dokunuşla zaman seçimi, seçime göre canlı toplam */}
+      <div className="admin-card expense-hero mt-4">
+        <div className="expense-chip-row" role="tablist" aria-label="Dönem">
+          {TIME_RANGE_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              role="tab"
+              aria-selected={timeRange === opt.id}
+              className={`expense-chip ${timeRange === opt.id ? "is-active" : ""}`}
+              onClick={() => setTimeRange(opt.id)}
+            >
+              {opt.id === "pickMonth" && timeRange === "pickMonth"
+                ? formatMonthLabel(selectedMonth)
+                : opt.label}
+            </button>
+          ))}
         </div>
-        <div className="admin-card expense-summary-card">
-          <p className="expense-summary-label">Toplam</p>
-          <p className="expense-summary-value">{currencyFmt.format(totalAll)}</p>
-        </div>
-        <div className="admin-card expense-summary-card">
-          <p className="expense-summary-label">Kayıt</p>
-          <p className="expense-summary-value">{expenses.length}</p>
-        </div>
-      </div>
 
-      {!loading && expenses.length > 0 && (
-        <div className="admin-card expense-filterbar mt-4">
-          <div className="expense-filter-grid">
-            <div>
-              <label className="admin-label">Kategori</label>
-              <ItemSelect
-                items={categories}
-                value={filterCategoryId != null && filterCategoryId > 0 ? filterCategoryId : null}
-                onChange={setFilterCategoryId}
-                placeholder="Tüm kategoriler"
-                clearLabel="Tüm kategoriler"
-              />
-            </div>
-            <div>
-              <label className="admin-label">Ödeyen</label>
-              <ItemSelect
-                items={people}
-                value={filterPersonId}
-                onChange={setFilterPersonId}
-                placeholder="Herkes"
-                clearLabel="Herkes"
-              />
-            </div>
-            <div>
-              <label className="admin-label">Zaman</label>
-              <select
-                className="admin-input expense-filter-select"
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value as TimeRange)}
-              >
-                {TIME_RANGE_OPTIONS.map((opt) => (
-                  <option key={opt.id} value={opt.id}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="admin-label">Sıralama</label>
-              <select
-                className="admin-input expense-filter-select"
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as SortKey)}
-              >
-                {SORT_OPTIONS.map((opt) => (
-                  <option key={opt.id} value={opt.id}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {timeRange === "pickMonth" && (
+          <div className="expense-hero-extra">
+            <input
+              type="month"
+              className="admin-input"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value || currentMonthISO())}
+            />
           </div>
+        )}
 
-          {timeRange === "pickMonth" && (
-            <div className="expense-filter-extra">
-              <div>
-                <label className="admin-label">Ay</label>
-                <input
-                  type="month"
-                  className="admin-input expense-filter-select"
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value || currentMonthISO())}
-                />
-              </div>
-            </div>
-          )}
-
-          {timeRange === "custom" && (
-            <div className="expense-filter-extra expense-filter-range">
-              <div>
-                <label className="admin-label">Başlangıç</label>
-                <input
-                  type="date"
-                  className="admin-input expense-filter-select"
-                  value={customFrom}
-                  max={customTo || undefined}
-                  onChange={(e) => setCustomFrom(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="admin-label">Bitiş</label>
-                <input
-                  type="date"
-                  className="admin-input expense-filter-select"
-                  value={customTo}
-                  min={customFrom || undefined}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="expense-filter-result">
-            <span>
-              {periodLabel}: {periodExpenses.length} kayıt · {currencyFmt.format(periodTotal)}
-              {filterCategoryId != null && (
-                <>
-                  {" "}
-                  · listede {visibleExpenses.length} / {currencyFmt.format(visibleTotal)}
-                </>
-              )}
+        {timeRange === "custom" && (
+          <div className="expense-hero-extra expense-hero-range">
+            <input
+              type="date"
+              className="admin-input"
+              value={customFrom}
+              max={customTo || undefined}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              aria-label="Başlangıç"
+            />
+            <span className="expense-hero-range-sep" aria-hidden>
+              –
             </span>
+            <input
+              type="date"
+              className="admin-input"
+              value={customTo}
+              min={customFrom || undefined}
+              onChange={(e) => setCustomTo(e.target.value)}
+              aria-label="Bitiş"
+            />
+          </div>
+        )}
+
+        <div className="expense-hero-main">
+          <div className="expense-hero-total">
+            <p className="expense-hero-label">
+              {periodLabel}
+              {(filterCategoryId != null || filterPersonId != null) && " · filtreli"}
+            </p>
+            <p className="expense-hero-value">{currencyFmt.format(visibleTotal)}</p>
+            <p className="expense-hero-sub">{visibleExpenses.length} kayıt</p>
+          </div>
+          <div className="expense-hero-side">
+            <div className="expense-hero-mini">
+              <span>Bu ay</span>
+              <b>{currencyFmt.format(totalThisMonth)}</b>
+            </div>
+            <div className="expense-hero-mini">
+              <span>Tüm zamanlar</span>
+              <b>{currencyFmt.format(totalAll)}</b>
+            </div>
             {filtersActive && (
-              <button type="button" className="admin-link font-semibold" onClick={clearFilters}>
+              <button
+                type="button"
+                className="expense-hero-clear"
+                onClick={clearFilters}
+              >
                 Filtreleri temizle
               </button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Kategori / ödeyen: kaydırılabilir tek dokunuş çipler */}
+      {!loading && expenses.length > 0 && (categories.length > 0 || people.length > 0) && (
+        <div className="expense-chip-filters mt-3">
+          {categories.length > 0 && (
+            <div className="expense-chip-row" aria-label="Kategori filtresi">
+              <button
+                type="button"
+                className={`expense-chip ${filterCategoryId == null ? "is-active" : ""}`}
+                onClick={() => setFilterCategoryId(null)}
+              >
+                Tüm kategoriler
+              </button>
+              {categories.map((cat) => {
+                const active = filterCategoryId === cat.id;
+                const color = cat.color || DEFAULT_EXPENSE_COLOR;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    className={`expense-chip expense-chip-item ${active ? "is-active" : ""}`}
+                    style={
+                      active
+                        ? { backgroundColor: color, borderColor: color, color: "#fff" }
+                        : { color, borderColor: `${color}66`, backgroundColor: `${color}14` }
+                    }
+                    onClick={() => setFilterCategoryId(active ? null : cat.id)}
+                  >
+                    <ExpenseIcon icon={cat.icon} className="h-3.5 w-3.5" />
+                    {cat.name}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                className={`expense-chip ${
+                  filterCategoryId === UNCATEGORIZED_FILTER ? "is-active" : ""
+                }`}
+                onClick={() =>
+                  setFilterCategoryId(
+                    filterCategoryId === UNCATEGORIZED_FILTER ? null : UNCATEGORIZED_FILTER
+                  )
+                }
+              >
+                Kategorisiz
+              </button>
+            </div>
+          )}
+
+          {people.length > 0 && (
+            <div className="expense-chip-row" aria-label="Ödeyen filtresi">
+              <button
+                type="button"
+                className={`expense-chip ${filterPersonId == null ? "is-active" : ""}`}
+                onClick={() => setFilterPersonId(null)}
+              >
+                Herkes
+              </button>
+              {people.map((person) => {
+                const active = filterPersonId === person.id;
+                const color = person.color || DEFAULT_EXPENSE_COLOR;
+                return (
+                  <button
+                    key={person.id}
+                    type="button"
+                    className={`expense-chip expense-chip-item ${active ? "is-active" : ""}`}
+                    style={
+                      active
+                        ? { backgroundColor: color, borderColor: color, color: "#fff" }
+                        : { color, borderColor: `${color}66`, backgroundColor: `${color}14` }
+                    }
+                    onClick={() => setFilterPersonId(active ? null : person.id)}
+                  >
+                    <ExpenseIcon icon={person.icon} className="h-3.5 w-3.5" />
+                    {person.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -925,7 +966,25 @@ export default function ExpensesPage() {
         </div>
       ) : (
         <>
-          <div className="admin-table-wrap mt-6 hidden lg:block">
+          <div className="expense-list-head mt-5">
+            <span className="expense-list-count">
+              {visibleExpenses.length} kayıt · {currencyFmt.format(visibleTotal)}
+            </span>
+            <select
+              className="admin-input expense-sort-select"
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              aria-label="Sıralama"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="admin-table-wrap mt-3 hidden lg:block">
             <table className="admin-table">
               <thead>
                 <tr>

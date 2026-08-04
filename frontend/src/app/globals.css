@@ -7297,3 +7297,176 @@ tr.stock-count-row-unchanged > td {
 .settings-toggle.is-on .settings-toggle-knob {
   transform: translateX(1.35rem);
 }
+
+/* ——— Giderler: yeni filtre/istatistik düzeni ——— */
+.expense-hero {
+  padding: 0.9rem 1rem 1rem;
+}
+
+.expense-chip-row {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.expense-chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.expense-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  border: 1.5px solid #e4e4e7;
+  border-radius: 999px;
+  background: #fff;
+  padding: 0 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #52525b;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.expense-chip.is-active {
+  background: #18181b;
+  border-color: #18181b;
+  color: #fff;
+}
+
+.expense-chip-item.is-active {
+  /* renk inline style ile gelir */
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+}
+
+.expense-hero-extra {
+  margin-top: 0.6rem;
+  max-width: 16rem;
+}
+
+.expense-hero-range {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 26rem;
+}
+
+.expense-hero-range-sep {
+  color: #a1a1aa;
+  font-weight: 700;
+}
+
+.expense-hero-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin-top: 0.9rem;
+  border-top: 1px solid #f4f4f5;
+  padding-top: 0.9rem;
+}
+
+.expense-hero-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+}
+
+.expense-hero-value {
+  margin-top: 0.15rem;
+  font-size: clamp(1.6rem, 6vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #18181b;
+  line-height: 1.1;
+}
+
+.expense-hero-sub {
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  color: #71717a;
+}
+
+.expense-hero-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.expense-hero-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  border: 1px solid #ececef;
+  border-radius: 0.75rem;
+  background: #fafafa;
+  padding: 0.45rem 0.7rem;
+}
+
+.expense-hero-mini span {
+  font-size: 0.6563rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+}
+
+.expense-hero-mini b {
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #3f3f46;
+}
+
+.expense-hero-clear {
+  min-height: 2.25rem;
+  border: 1.5px solid #fecaca;
+  border-radius: 999px;
+  background: #fef2f2;
+  padding: 0 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #b91c1c;
+  cursor: pointer;
+}
+
+.expense-chip-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.expense-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.expense-list-count {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #71717a;
+}
+
+.expense-sort-select {
+  width: auto;
+  min-height: 2.4rem;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+  font-size: 0.8125rem;
+}
