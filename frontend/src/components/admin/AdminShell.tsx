@@ -9,6 +9,12 @@ import { ADMIN_ENTRY_PATH, getStoreUrl, shouldShowStoreLink } from "@/lib/domain
 import { ADMIN_NAV, getAdminNavPage, getAdminPageDescription, isAdminNavActive } from "@/lib/admin-nav";
 import { IconLogout, IconStore } from "./AdminIcons";
 
+/** Mobil alt çubukta yalnızca günlük kullanılan 4 sekme; kalanı "Menü"den açılır. */
+const BOTTOMNAV_HREFS = ["/admin", "/admin/stok", "/admin/sepet", "/admin/yoklama"] as const;
+const BOTTOMNAV_ITEMS = BOTTOMNAV_HREFS.map(
+  (href) => ADMIN_NAV.find((item) => item.href === href)!
+).filter(Boolean);
+
 function SidebarNav({
   pathname,
   onNavigate,
@@ -158,7 +164,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <main className="admin-main">{children}</main>
 
         <nav className="admin-bottomnav" aria-label="Hızlı menü">
-          {ADMIN_NAV.map(({ href, shortLabel, icon: Icon, exact }) => {
+          {BOTTOMNAV_ITEMS.map(({ href, shortLabel, icon: Icon, exact }) => {
             const active = isAdminNavActive(pathname, href, exact);
             return (
               <Link
@@ -167,12 +173,30 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 className={`admin-bottomnav-item ${active ? "admin-bottomnav-item-active" : ""}`}
               >
                 <span className="admin-bottomnav-icon">
-                  <Icon className="h-[1.125rem] w-[1.125rem]" />
+                  <Icon className="h-5 w-5" />
                 </span>
                 <span className="admin-bottomnav-label">{shortLabel}</span>
               </Link>
             );
           })}
+          <button
+            type="button"
+            className={`admin-bottomnav-item ${
+              menuOpen ||
+              !BOTTOMNAV_ITEMS.some(({ href, exact }) => isAdminNavActive(pathname, href, exact))
+                ? "admin-bottomnav-item-active"
+                : ""
+            }`}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+          >
+            <span className="admin-bottomnav-icon">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h10" />
+              </svg>
+            </span>
+            <span className="admin-bottomnav-label">Menü</span>
+          </button>
         </nav>
       </div>
     </div>

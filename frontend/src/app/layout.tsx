@@ -1,10 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Archivo, Geist } from "next/font/google";
 import "./globals.css";
 
+// latin-ext: Türkçe karakterler (ş, ğ, İ…) sistem fontuna düşmesin
 const geistSans = Geist({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  subsets: ["latin", "latin-ext"],
+});
+
+/** Admin panelinin başlık/tabela yazısı. */
+const archivo = Archivo({
+  variable: "--font-archivo",
+  subsets: ["latin", "latin-ext"],
 });
 
 export const metadata: Metadata = {
@@ -37,7 +44,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr" className={`${geistSans.variable} h-full antialiased`} suppressHydrationWarning>
+    <html
+      lang="tr"
+      className={`${geistSans.variable} ${archivo.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <body className="flex h-full flex-col overflow-hidden bg-surface text-zinc-900" suppressHydrationWarning>
         {children}
       </body>

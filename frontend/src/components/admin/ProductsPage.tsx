@@ -563,6 +563,15 @@ export default function ProductsPage({
                     </dd>
                   </div>
                 </dl>
+                {canUseCategories && (p.categories ?? []).length > 0 && (
+                  <div className="admin-category-chips mt-3">
+                    {(p.categories ?? []).map((c) => (
+                      <span key={c.id} className="admin-category-chip">
+                        {c.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {(canEdit || canDelete) && (
                   <div className="admin-action-icons mt-3 border-t border-zinc-100 pt-3">
                     {canEdit && (

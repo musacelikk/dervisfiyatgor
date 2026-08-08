@@ -90,8 +90,8 @@ function dayClass(status: AttendanceDayStatus): string {
   return `attendance-cal-day is-${status}`;
 }
 
-/** Gün hücresinin üstündeki tooltip içeriği. */
-function DayTooltip({ day }: { day: AttendanceDay }) {
+/** Tooltip ve seçili gün kartında gösterilen ortak alanlar. */
+function dayRows(day: AttendanceDay): [string, string][] {
   const rows: [string, string][] = [
     ["Tarih", formatDate(day.date)],
     ["Durum", DAY_STATUS_LABELS[day.dayStatus]],
@@ -119,9 +119,14 @@ function DayTooltip({ day }: { day: AttendanceDay }) {
   }
   if (day.note) rows.push(["Not", day.note]);
 
+  return rows;
+}
+
+/** Fare ile üzerine gelince açılan balon — yalnızca imleçli cihazlarda görünür (CSS). */
+function DayTooltip({ day }: { day: AttendanceDay }) {
   return (
     <span className="attendance-cal-tip" role="tooltip">
-      {rows.map(([label, value]) => (
+      {dayRows(day).map(([label, value]) => (
         <span key={label} className="attendance-cal-tip-row">
           <span className="attendance-cal-tip-label">{label}:</span>
           <span className="attendance-cal-tip-value">{value}</span>
@@ -131,13 +136,63 @@ function DayTooltip({ day }: { day: AttendanceDay }) {
   );
 }
 
-function DayCell({ day, today }: { day: AttendanceDay; today: string }) {
+/** Dokunmatikte hover olmadığı için seçilen gün takvimin altında kart olarak açılır. */
+function SelectedDayCard({ day, onClose }: { day: AttendanceDay; onClose: () => void }) {
+  return (
+    <div className={`attendance-day-card is-${day.dayStatus}`}>
+      <div className="attendance-day-card-head">
+        <span className="attendance-day-card-title">
+          {formatDate(day.date)} · {WEEKDAY_LABELS[day.weekday]}
+        </span>
+        <span className={`attendance-day-card-status is-${day.dayStatus}`}>
+          {DAY_STATUS_LABELS[day.dayStatus]}
+        </span>
+        <button
+          type="button"
+          className="attendance-day-card-close"
+          aria-label="Gün detayını kapat"
+          onClick={onClose}
+        >
+          ×
+        </button>
+      </div>
+      <dl className="attendance-day-card-rows">
+        {dayRows(day)
+          .filter(([label]) => label !== "Tarih" && label !== "Durum")
+          .map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+      </dl>
+    </div>
+  );
+}
+
+function DayCell({
+  day,
+  today,
+  selected,
+  onSelect,
+}: {
+  day: AttendanceDay;
+  today: string;
+  selected: boolean;
+  onSelect: (date: string) => void;
+}) {
   const [, , dayNum] = day.date.split("-");
   return (
-    <div
-      className={`${dayClass(day.dayStatus)}${day.date === today ? " is-today" : ""}`}
-      tabIndex={0}
-      aria-label={`${formatDate(day.date)} — ${DAY_STATUS_LABELS[day.dayStatus]}`}
+    <button
+      type="button"
+      onClick={() => onSelect(day.date)}
+      className={`${dayClass(day.dayStatus)}${day.date === today ? " is-today" : ""}${
+        selected ? " is-selected" : ""
+      }`}
+      aria-pressed={selected}
+      aria-label={`${formatDate(day.date)} — ${DAY_STATUS_LABELS[day.dayStatus]}${
+        day.isLate ? `, ${formatLateMinutes(day.lateMinutes)} geç` : ""
+      }`}
     >
       <span className="attendance-cal-daynum">{Number(dayNum)}</span>
       {day.checkInAt && (
@@ -147,7 +202,7 @@ function DayCell({ day, today }: { day: AttendanceDay; today: string }) {
         <span className="attendance-cal-daylate">+{day.lateMinutes}dk</span>
       )}
       <DayTooltip day={day} />
-    </div>
+    </button>
   );
 }
 
@@ -169,6 +224,7 @@ export default function EmployeeAttendanceDetail({
   const [detail, setDetail] = useState<AttendanceEmployeeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const range = useMemo(() => {
     if (view === "week") return { from: weekStart, to: addDays(weekStart, 6) };
@@ -181,6 +237,7 @@ export default function EmployeeAttendanceDetail({
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setSelectedDate(null);
     try {
       setDetail(await fetchEmployeeAttendance(employeeId, range.from, range.to));
     } catch (err) {
@@ -218,6 +275,7 @@ export default function EmployeeAttendanceDetail({
   }, [view, days]);
 
   const summary = detail?.summary;
+  const selectedDay = days.find((d) => d.date === selectedDate) ?? null;
 
   return (
     <div className="attendance-detail">
@@ -333,10 +391,26 @@ export default function EmployeeAttendanceDetail({
                 <div key={`blank-${i}`} className="attendance-cal-day is-blank" aria-hidden />
               ))}
               {days.map((day) => (
-                <DayCell key={day.date} day={day} today={today} />
+                <DayCell
+                  key={day.date}
+                  day={day}
+                  today={today}
+                  selected={day.date === selectedDate}
+                  onSelect={(date) =>
+                    setSelectedDate((current) => (current === date ? null : date))
+                  }
+                />
               ))}
             </div>
           </div>
+
+          {selectedDay ? (
+            <SelectedDayCard day={selectedDay} onClose={() => setSelectedDate(null)} />
+          ) : (
+            <p className="attendance-cal-hint">
+              Bir güne dokunun; o güne ait giriş saati ve geç kalma detayı burada açılır.
+            </p>
+          )}
 
           <ul className="attendance-cal-legend">
             <li>
