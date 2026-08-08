@@ -19,6 +19,7 @@ import {
   type EmployeeShift,
 } from "../lib/attendance";
 import { listEmployees } from "./employees";
+import { excuseMap } from "./attendanceExcuses";
 import { getAttendanceSettings, getClosedDays, type AttendanceSettings } from "./settings";
 import type {
   AttendanceDay,
@@ -446,9 +447,10 @@ export async function listAttendance(filters: {
     from: filters.from,
     to: filters.to,
   });
-  const [resolveOff, settings] = await Promise.all([
+  const [resolveOff, settings, excuses] = await Promise.all([
     buildOffResolver(),
     getAttendanceSettings(),
+    excuseMap(filters.from, filters.to, filters.employeeId),
   ]);
   const today = istanbulDateString();
 
@@ -494,6 +496,7 @@ export async function listAttendance(filters: {
         lateMinutes,
         dayStatus,
         off,
+        excuse: excuses.get(`${employee.id}|${day}`) ?? null,
       });
     }
   }
@@ -611,10 +614,11 @@ export async function getEmployeeAttendanceDetail(
   const employee = (await listEmployees()).find((e) => e.id === employeeId);
   if (!employee) throw new Error("Personel bulunamadı.");
 
-  const [entries, resolveOff, settings] = await Promise.all([
+  const [entries, resolveOff, settings, excuses] = await Promise.all([
     listEntriesRaw({ employeeId, from, to }),
     buildOffResolver(),
     getAttendanceSettings(),
+    excuseMap(from, to, employeeId),
   ]);
 
   const shift = normalizeShift(employee.shift);
@@ -648,6 +652,7 @@ export async function getEmployeeAttendanceDetail(
       note: entry?.note ?? null,
       entryId: entry?.id ?? null,
       off,
+      excuse: excuses.get(`${employeeId}|${date}`) ?? null,
     };
   });
 

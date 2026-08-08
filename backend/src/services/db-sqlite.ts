@@ -14,7 +14,7 @@ function resolveDataDir(): string {
 
 let sqliteDb: Database.Database | null = null;
 
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 const NAME_SEARCH_LIMIT = 30;
 
 function tableColumns(database: Database.Database, table: string): Set<string> {
@@ -223,6 +223,21 @@ function applyMigrationStep(database: Database.Database, fromVersion: number): v
         );
         CREATE INDEX IF NOT EXISTS idx_product_category_map_category
           ON product_category_map(category_id);
+      `);
+      return;
+    case 16:
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS attendance_excuses (
+          employee_id INTEGER NOT NULL,
+          work_date TEXT NOT NULL,
+          note TEXT NOT NULL,
+          created_by TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY (employee_id, work_date),
+          FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_attendance_excuses_date
+          ON attendance_excuses(work_date);
       `);
       return;
     default:
@@ -466,6 +481,17 @@ export function initSqliteDatabase(): void {
     );
     CREATE INDEX IF NOT EXISTS idx_product_category_map_category
       ON product_category_map(category_id);
+    CREATE TABLE IF NOT EXISTS attendance_excuses (
+      employee_id INTEGER NOT NULL,
+      work_date TEXT NOT NULL,
+      note TEXT NOT NULL,
+      created_by TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (employee_id, work_date),
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_attendance_excuses_date
+      ON attendance_excuses(work_date);
   `);
 }
 

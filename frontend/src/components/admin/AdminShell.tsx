@@ -102,18 +102,6 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <SidebarNav pathname={pathname} onNavigate={() => setMenuOpen(false)} />
 
           <div className="admin-sidebar-footer">
-            {showStoreLink && (
-              <Link
-                href={getStoreUrl()}
-                className="admin-nav-item admin-nav-item-muted"
-                onClick={() => setMenuOpen(false)}
-              >
-                <span className="admin-nav-icon">
-                  <IconStore />
-                </span>
-                <span className="admin-nav-label">Mağaza arayüzü</span>
-              </Link>
-            )}
             <button
               type="button"
               onClick={() => void handleLogout()}

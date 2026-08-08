@@ -17,6 +17,7 @@ import {
   istanbulDateTimeToUtc,
   type AttendanceStatusOrAbsent,
 } from "../lib/attendance";
+import { setExcuse } from "../services/attendanceExcuses";
 import { getAttendanceSettings } from "../services/settings";
 import { getShopLocation, getShopRadiusMeters, istanbulDateString } from "../lib/sunset";
 
@@ -112,6 +113,45 @@ router.get("/employee/:employeeId", async (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Personel yoklaması yüklenemedi.";
     res.status(message.includes("bulunamadı") ? 404 : 500).json({ error: message });
+  }
+});
+
+/** Mazeret yazma/silme — kayıt olsun olmasın her gün için çalışır.
+ *  Not boş gönderilirse mazeret silinir. Rapor sayılarını etkilemez. */
+router.put("/excuse", async (req, res) => {
+  const employeeId = Number(req.body?.employeeId);
+  const workDate = typeof req.body?.workDate === "string" ? req.body.workDate.trim() : "";
+  const note = typeof req.body?.note === "string" ? req.body.note : null;
+
+  if (!Number.isFinite(employeeId) || employeeId < 1) {
+    res.status(400).json({ error: "Personel seçilmedi." });
+    return;
+  }
+  if (!DATE_RE.test(workDate)) {
+    res.status(400).json({ error: "Tarih formatı YYYY-MM-DD olmalı." });
+    return;
+  }
+  if (note !== null && note.length > 300) {
+    res.status(400).json({ error: "Mazeret en fazla 300 karakter olabilir." });
+    return;
+  }
+
+  try {
+    const saved = await setExcuse(employeeId, workDate, note, "admin");
+    logAuditFromContext(getAuditContext(req), {
+      action: "shift.excuse_update",
+      resourceType: "shift",
+      resourceId: `${employeeId}|${workDate}`,
+      message: saved
+        ? `Mazeret kaydedildi: personel #${employeeId} (${workDate})`
+        : `Mazeret kaldırıldı: personel #${employeeId} (${workDate})`,
+      metadata: { employeeId, workDate },
+    });
+    res.json({ excuse: saved });
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : "Mazeret kaydedilemedi.",
+    });
   }
 });
 

@@ -117,6 +117,24 @@ export async function deleteAttendanceEntry(id: number): Promise<void> {
   await jsonFetch(`/api/admin/shifts/${id}`, "Silinemedi.", { method: "DELETE" });
 }
 
+/** Mazeret yazar; boş not gönderilirse mevcut mazereti siler. */
+export async function saveAttendanceExcuse(input: {
+  employeeId: number;
+  workDate: string;
+  note: string | null;
+}): Promise<string | null> {
+  const body = await jsonFetch<{ excuse: string | null }>(
+    "/api/admin/shifts/excuse",
+    "Mazeret kaydedilemedi.",
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }
+  );
+  return body.excuse;
+}
+
 export async function fetchClosedDays(): Promise<ClosedDay[]> {
   const body = await jsonFetch<{ closedDays: ClosedDay[] }>(
     "/api/admin/settings/closed-days",

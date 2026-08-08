@@ -56,6 +56,8 @@ export type AttendanceRow = {
   lateMinutes: number;
   dayStatus: AttendanceDayStatus;
   off: AttendanceOffInfo | null;
+  /** Elle girilen mazeret (örn. "hasta oldu"). Rapor sayılarını etkilemez. */
+  excuse: string | null;
 };
 
 export type AttendanceSummary = {
@@ -125,6 +127,8 @@ export type AttendanceDay = {
   note: string | null;
   entryId: number | null;
   off: AttendanceOffInfo | null;
+  /** Elle girilen mazeret (örn. "hasta oldu"). Rapor sayılarını etkilemez. */
+  excuse: string | null;
 };
 
 export type AttendanceEmployeeSummary = {

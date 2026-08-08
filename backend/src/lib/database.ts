@@ -251,6 +251,17 @@ async function migratePostgres(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_product_category_map_category
       ON product_category_map(category_id);
+
+    CREATE TABLE IF NOT EXISTS attendance_excuses (
+      employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      work_date TEXT NOT NULL,
+      note TEXT NOT NULL,
+      created_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (employee_id, work_date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_attendance_excuses_date
+      ON attendance_excuses(work_date);
   `);
 }
 

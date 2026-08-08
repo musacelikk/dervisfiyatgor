@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchEmployeeAttendance } from "@/lib/attendance-api";
+import {
+  createAttendanceEntry,
+  deleteAttendanceEntry,
+  fetchEmployeeAttendance,
+  saveAttendanceExcuse,
+  updateAttendanceEntry,
+} from "@/lib/attendance-api";
 import {
   DAY_STATUS_LABELS,
   SHIFT_LABELS,
@@ -10,6 +16,7 @@ import {
   type AttendanceDay,
   type AttendanceDayStatus,
   type AttendanceEmployeeDetail,
+  type AttendanceStatus,
 } from "@/types/shift";
 
 type ViewMode = "month" | "week";
@@ -86,6 +93,21 @@ function formatTime(iso: string | null): string {
   }
 }
 
+/** `<input type="time">` için "HH:MM" (İstanbul saati). */
+function timeValue(iso: string | null): string {
+  if (!iso) return "";
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Istanbul",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(iso));
+  } catch {
+    return "";
+  }
+}
+
 function dayClass(status: AttendanceDayStatus): string {
   return `attendance-cal-day is-${status}`;
 }
@@ -118,6 +140,7 @@ function dayRows(day: AttendanceDay): [string, string][] {
     if (day.off.note) rows.push(["Açıklama", day.off.note]);
   }
   if (day.note) rows.push(["Not", day.note]);
+  if (day.excuse) rows.push(["Mazeret", day.excuse]);
 
   return rows;
 }
@@ -136,8 +159,97 @@ function DayTooltip({ day }: { day: AttendanceDay }) {
   );
 }
 
-/** Dokunmatikte hover olmadığı için seçilen gün takvimin altında kart olarak açılır. */
-function SelectedDayCard({ day, onClose }: { day: AttendanceDay; onClose: () => void }) {
+/** Dokunmatikte hover olmadığı için seçilen gün takvimin altında kart olarak açılır.
+ *  İzinli ve gelecek günler dışında durum/saat düzeltilebilir ve mazeret girilebilir. */
+function DayEditor({
+  day,
+  employeeId,
+  onClose,
+  onSaved,
+}: {
+  day: AttendanceDay;
+  employeeId: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const hasEntry = day.entryId != null;
+  const editable = day.dayStatus !== "off" && day.dayStatus !== "future";
+
+  const [status, setStatus] = useState<AttendanceStatus>(day.status ?? "full");
+  const [time, setTime] = useState(() => timeValue(day.checkInAt) || "09:00");
+  const [note, setNote] = useState(day.note ?? "");
+  const [excuse, setExcuse] = useState(day.excuse ?? "");
+  /** Kaydı olmayan günde "Kayıt oluştur" açılana kadar sadece mazeret girilir. */
+  const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Başka bir güne geçilince form o günün değerleriyle yeniden kurulur.
+  useEffect(() => {
+    setStatus(day.status ?? "full");
+    setTime(timeValue(day.checkInAt) || "09:00");
+    setNote(day.note ?? "");
+    setExcuse(day.excuse ?? "");
+    setCreating(false);
+    setError(null);
+  }, [day.date, day.status, day.checkInAt, day.note, day.excuse]);
+
+  const excuseChanged = excuse.trim() !== (day.excuse ?? "");
+
+  const handleSave = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (hasEntry) {
+        await updateAttendanceEntry(day.entryId!, {
+          workDate: day.date,
+          time: time || undefined,
+          status,
+          note: note.trim() || null,
+        });
+      } else if (creating) {
+        await createAttendanceEntry({
+          employeeId,
+          workDate: day.date,
+          status,
+          time: time || undefined,
+          note: note.trim() || null,
+        });
+      }
+      if (excuseChanged) {
+        await saveAttendanceExcuse({
+          employeeId,
+          workDate: day.date,
+          note: excuse.trim() || null,
+        });
+      }
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kaydedilemedi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeleteEntry = async () => {
+    if (!day.entryId) return;
+    if (!confirm(`${formatDate(day.date)} kaydı silinsin mi? (Gelmedi olarak görünecek)`)) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteAttendanceEntry(day.entryId);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Silinemedi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const canSave = hasEntry || creating || excuseChanged;
+
   return (
     <div className={`attendance-day-card is-${day.dayStatus}`}>
       <div className="attendance-day-card-head">
@@ -156,9 +268,16 @@ function SelectedDayCard({ day, onClose }: { day: AttendanceDay; onClose: () => 
           ×
         </button>
       </div>
+
       <dl className="attendance-day-card-rows">
         {dayRows(day)
-          .filter(([label]) => label !== "Tarih" && label !== "Durum")
+          // Tarih/Durum başlıkta, Not ve Mazeret aşağıda düzenlenebilir alanlarda
+          .filter(
+            ([label]) =>
+              label !== "Tarih" &&
+              label !== "Durum" &&
+              !(editable && (label === "Not" || label === "Mazeret"))
+          )
           .map(([label, value]) => (
             <div key={label}>
               <dt>{label}</dt>
@@ -166,6 +285,115 @@ function SelectedDayCard({ day, onClose }: { day: AttendanceDay; onClose: () => 
             </div>
           ))}
       </dl>
+
+      {!editable ? (
+        <p className="attendance-day-edit-hint">
+          {day.dayStatus === "off"
+            ? "İzinli günler düzenlenmez. İzin günlerini Ayarlar'dan yönetin."
+            : "Henüz gelmemiş bir gün için kayıt açılamaz."}
+        </p>
+      ) : (
+        <div className="attendance-day-edit">
+          {!hasEntry && !creating && (
+            <button
+              type="button"
+              className="attendance-day-edit-add"
+              onClick={() => setCreating(true)}
+              disabled={busy}
+            >
+              Bu güne yoklama kaydı oluştur
+            </button>
+          )}
+
+          {(hasEntry || creating) && (
+            <div className="attendance-day-edit-grid">
+              <label className="attendance-day-edit-field">
+                <span>Durum</span>
+                <select
+                  className="admin-input"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as AttendanceStatus)}
+                  disabled={busy}
+                >
+                  <option value="full">Tam Gün</option>
+                  <option value="half">Yarım Gün</option>
+                </select>
+              </label>
+              <label className="attendance-day-edit-field">
+                <span>Giriş saati</span>
+                <input
+                  type="time"
+                  className="admin-input"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+              <label className="attendance-day-edit-field is-wide">
+                <span>Açıklama</span>
+                <input
+                  type="text"
+                  className="admin-input"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="İsteğe bağlı not"
+                  maxLength={200}
+                  disabled={busy}
+                />
+              </label>
+            </div>
+          )}
+
+          <label className="attendance-day-edit-field is-wide">
+            <span>Mazeret</span>
+            <input
+              type="text"
+              className="admin-input"
+              value={excuse}
+              onChange={(e) => setExcuse(e.target.value)}
+              placeholder="Örn. hasta oldu, rapor aldı"
+              maxLength={300}
+              disabled={busy}
+            />
+          </label>
+          <p className="attendance-day-edit-note">
+            Mazeret yalnızca açıklamadır; rapor sayılarını değiştirmez.
+          </p>
+
+          {error && <p className="attendance-day-edit-error">{error}</p>}
+
+          <div className="attendance-day-edit-actions">
+            <button
+              type="button"
+              className="admin-btn-primary"
+              onClick={() => void handleSave()}
+              disabled={busy || !canSave}
+            >
+              {busy ? "Kaydediliyor…" : "Kaydet"}
+            </button>
+            {creating && !hasEntry && (
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                onClick={() => setCreating(false)}
+                disabled={busy}
+              >
+                Kayıt açmaktan vazgeç
+              </button>
+            )}
+            {hasEntry && (
+              <button
+                type="button"
+                className="attendance-day-edit-delete"
+                onClick={() => void handleDeleteEntry()}
+                disabled={busy}
+              >
+                Kaydı sil
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -188,12 +416,15 @@ function DayCell({
       onClick={() => onSelect(day.date)}
       className={`${dayClass(day.dayStatus)}${day.date === today ? " is-today" : ""}${
         selected ? " is-selected" : ""
-      }`}
+      }${day.excuse ? " has-excuse" : ""}`}
       aria-pressed={selected}
       aria-label={`${formatDate(day.date)} — ${DAY_STATUS_LABELS[day.dayStatus]}${
         day.isLate ? `, ${formatLateMinutes(day.lateMinutes)} geç` : ""
-      }`}
+      }${day.excuse ? `, mazeret: ${day.excuse}` : ""}`}
     >
+      {day.excuse && (
+        <span className="attendance-cal-excuse-dot" aria-hidden title={day.excuse} />
+      )}
       <span className="attendance-cal-daynum">{Number(dayNum)}</span>
       {day.checkInAt && (
         <span className="attendance-cal-daytime">{formatTime(day.checkInAt)}</span>
@@ -209,11 +440,14 @@ function DayCell({
 interface EmployeeAttendanceDetailProps {
   employeeId: number;
   employeeName: string;
+  /** Takvimden bir gün düzenlendiğinde üst listenin de tazelenmesi için. */
+  onChanged?: () => void;
 }
 
 export default function EmployeeAttendanceDetail({
   employeeId,
   employeeName,
+  onChanged,
 }: EmployeeAttendanceDetailProps) {
   const today = useMemo(() => istanbulToday(), []);
   const [view, setView] = useState<ViewMode>("month");
@@ -234,19 +468,23 @@ export default function EmployeeAttendanceDetail({
     };
   }, [view, weekStart, year, month]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setSelectedDate(null);
-    try {
-      setDetail(await fetchEmployeeAttendance(employeeId, range.from, range.to));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Personel yoklaması yüklenemedi.");
-      setDetail(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [employeeId, range.from, range.to]);
+  /** `keepSelection` — kaydetme sonrası aynı gün açık kalsın diye. */
+  const load = useCallback(
+    async (keepSelection = false) => {
+      setLoading(true);
+      setError(null);
+      if (!keepSelection) setSelectedDate(null);
+      try {
+        setDetail(await fetchEmployeeAttendance(employeeId, range.from, range.to));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Personel yoklaması yüklenemedi.");
+        setDetail(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [employeeId, range.from, range.to]
+  );
 
   useEffect(() => {
     void load();
@@ -405,10 +643,18 @@ export default function EmployeeAttendanceDetail({
           </div>
 
           {selectedDay ? (
-            <SelectedDayCard day={selectedDay} onClose={() => setSelectedDate(null)} />
+            <DayEditor
+              day={selectedDay}
+              employeeId={employeeId}
+              onClose={() => setSelectedDate(null)}
+              onSaved={() => {
+                void load(true);
+                onChanged?.();
+              }}
+            />
           ) : (
             <p className="attendance-cal-hint">
-              Bir güne dokunun; o güne ait giriş saati ve geç kalma detayı burada açılır.
+              Bir güne dokunun; giriş saatini ve durumu düzeltebilir, mazeret girebilirsiniz.
             </p>
           )}
 
@@ -427,6 +673,9 @@ export default function EmployeeAttendanceDetail({
             </li>
             <li>
               <span className="attendance-cal-swatch is-future" /> Yoklama yok
+            </li>
+            <li>
+              <span className="attendance-cal-swatch is-excuse" /> Mazeretli
             </li>
           </ul>
 

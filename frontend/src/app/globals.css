@@ -6592,72 +6592,6 @@ tr.stock-count-row-unchanged > td {
 }
 
 /* ——— Yoklama (admin) ——— */
-.attendance-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-
-.attendance-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  border: 1px solid #e4e4e7;
-  border-radius: 0.9rem;
-  background: #fff;
-  padding: 0.8rem 0.9rem;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
-}
-
-.attendance-stat-primary {
-  border-color: transparent;
-  background: linear-gradient(150deg, #18181b 0%, #3f1515 70%, #7f1d1d 100%);
-  box-shadow: 0 8px 22px rgb(127 29 29 / 0.25);
-}
-
-.attendance-stat-primary .attendance-stat-label {
-  color: #fca5a5;
-}
-
-.attendance-stat-primary .attendance-stat-value,
-.attendance-stat-primary .attendance-stat-hint {
-  color: #fff;
-}
-
-.attendance-stat-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #a1a1aa;
-}
-
-.attendance-stat-value {
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: #18181b;
-  line-height: 1.1;
-}
-
-.attendance-stat-hint {
-  font-size: 0.6875rem;
-  color: #71717a;
-}
-
-.attendance-stat-full {
-  color: #15803d;
-}
-
-.attendance-stat-half {
-  color: #b45309;
-}
-
-.attendance-stat-warn {
-  color: #b91c1c;
-}
-
 .attendance-presets {
   display: flex;
   flex-wrap: wrap;
@@ -6684,13 +6618,6 @@ tr.stock-count-row-unchanged > td {
   background: #18181b;
   border-color: #18181b;
   color: #fff;
-}
-
-.attendance-filters {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-  margin-top: 0.75rem;
 }
 
 .attendance-filter {
@@ -6742,92 +6669,6 @@ tr.stock-count-row-unchanged > td {
   background: #fff;
   padding: 0.9rem 1rem;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
-}
-
-.attendance-report-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.4rem;
-}
-
-.attendance-report-head h2 {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: #18181b;
-}
-
-.attendance-report-cutoff {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: #a1a1aa;
-}
-
-.attendance-report-totals {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.6rem;
-}
-
-.attendance-report-total {
-  border-radius: 999px;
-  background: #f4f4f5;
-  padding: 0.3rem 0.75rem;
-  font-size: 0.8125rem;
-  color: #52525b;
-}
-
-.attendance-report-total b {
-  font-weight: 800;
-  color: #18181b;
-}
-
-.attendance-report-list {
-  margin-top: 0.75rem;
-  border-top: 1px solid #f4f4f5;
-  padding-top: 0.5rem;
-}
-
-.attendance-report-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.35rem 0;
-  font-size: 0.8125rem;
-}
-
-.attendance-report-name {
-  font-weight: 600;
-  color: #3f3f46;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.attendance-report-counts {
-  flex-shrink: 0;
-  font-size: 0.75rem;
-  color: #71717a;
-}
-
-@media (min-width: 640px) {
-  .attendance-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .attendance-filters {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .attendance-stats {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
 }
 
 /* ——— Satış kataloğu: sepet + karusel + adet ——— */
@@ -9313,83 +9154,6 @@ tr.stock-count-row-unchanged > td {
 
 /* ——— Yoklama ——— */
 
-.attendance-stats {
-  gap: 0.625rem;
-}
-
-.attendance-stat {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--adm-line);
-  border-radius: var(--adm-r-card);
-  background: var(--adm-card);
-  box-shadow: var(--adm-shadow-card);
-  padding: 0.85rem 0.95rem;
-}
-
-.attendance-stat::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0.95rem;
-  width: 1.9rem;
-  height: 0.25rem;
-  border-radius: 0 0 999px 999px;
-  background: #ddd8cb;
-}
-
-.attendance-stat-label {
-  font-family: var(--adm-display);
-  font-size: 0.6563rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--adm-ink-3);
-}
-
-.attendance-stat-value {
-  font-family: var(--adm-display);
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--adm-ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.attendance-stat-hint {
-  color: var(--adm-ink-3);
-}
-
-.attendance-stat-primary {
-  background: var(--adm-rail);
-  border-color: var(--adm-rail);
-}
-
-.attendance-stat-primary::before {
-  background: var(--adm-red);
-}
-
-.attendance-stat-primary .attendance-stat-label,
-.attendance-stat-primary .attendance-stat-hint {
-  color: var(--adm-rail-muted);
-}
-
-.attendance-stat-primary .attendance-stat-value {
-  color: #fdfcf9;
-}
-
-.attendance-stat-full {
-  color: var(--adm-green);
-}
-
-.attendance-stat-half {
-  color: var(--adm-amber);
-}
-
-.attendance-stat-warn {
-  color: var(--adm-red);
-}
-
 .attendance-preset,
 .settings-weekday,
 .admin-category-option,
@@ -9462,26 +9226,6 @@ tr.stock-count-row-unchanged > td {
   border-radius: var(--adm-r-card);
   background: var(--adm-card);
   box-shadow: var(--adm-shadow-card);
-}
-
-.attendance-report-head h2 {
-  font-family: var(--adm-display);
-  font-weight: 700;
-  color: var(--adm-ink);
-}
-
-.attendance-report-cutoff {
-  color: var(--adm-ink-3);
-}
-
-.attendance-report-total {
-  border-radius: 999px;
-  background: var(--adm-paper);
-  color: var(--adm-ink-2);
-}
-
-.attendance-report-row {
-  border-bottom: 1px solid var(--adm-hairline);
 }
 
 .attendance-badge {
@@ -9750,4 +9494,418 @@ tr.stock-count-row-unchanged > td {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ——————————————— Yoklama: özet çubuğu, filtre, rapor, gün düzenleyici ——————————————— */
+
+/* Tek kapsayıcı — öğe sayısı değişse de "yalnız kart" oluşmaz */
+.attendance-summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.75rem 1.25rem;
+  border: 1px solid var(--adm-line, #e4e4e7);
+  border-radius: var(--adm-r-card, 0.9rem);
+  background: var(--adm-card, #fff);
+  box-shadow: var(--adm-shadow-card, 0 1px 2px rgb(0 0 0 / 0.04));
+  padding: 0.9rem 1.05rem;
+}
+
+.attendance-summary-lead {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding-right: 1.25rem;
+  border-right: 1px solid var(--adm-hairline, #f1f1f0);
+  min-width: 9rem;
+}
+
+.attendance-summary-lead-label {
+  font-family: var(--adm-display, inherit);
+  font-size: 0.6563rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--adm-ink-3, #a1a1aa);
+}
+
+.attendance-summary-lead-value {
+  font-family: var(--adm-display, inherit);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-ink, #18181b);
+}
+
+.attendance-summary-lead-hint {
+  font-size: 0.6875rem;
+  color: var(--adm-ink-3, #71717a);
+}
+
+.attendance-summary-items {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 0.5rem 0;
+}
+
+.attendance-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  flex: 1 1 5.5rem;
+  min-width: 5.5rem;
+  padding: 0 0.9rem;
+  border-left: 1px solid var(--adm-hairline, #f1f1f0);
+}
+
+.attendance-summary-item:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.attendance-summary-value {
+  font-family: var(--adm-display, inherit);
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-ink, #18181b);
+}
+
+.attendance-summary-value.is-full {
+  color: var(--adm-green, #15803d);
+}
+.attendance-summary-value.is-late {
+  color: var(--adm-amber, #b45309);
+}
+.attendance-summary-value.is-off {
+  color: var(--adm-blue, #1d4ed8);
+}
+.attendance-summary-value.is-warn {
+  color: var(--adm-red, #b91c1c);
+}
+
+.attendance-summary-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--adm-ink-3, #71717a);
+}
+
+@media (max-width: 640px) {
+  .attendance-summary-lead {
+    flex: 1 1 100%;
+    padding-right: 0;
+    padding-bottom: 0.75rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--adm-hairline, #f1f1f0);
+  }
+
+  .attendance-summary-item {
+    flex: 1 1 4.5rem;
+    min-width: 4.5rem;
+    padding: 0 0.6rem;
+  }
+
+  .attendance-summary-value {
+    font-size: 1.15rem;
+  }
+}
+
+/* "Tarih seç" alanları açılınca preset hapları alt satıra kırılmasın */
+.admin-toolbar-card > .attendance-presets {
+  flex: 0 0 auto;
+}
+
+/* Filtreler — ızgara yerine sarma; "Tarih seç" alanları diğerlerinin yerini kaydırmaz */
+.attendance-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 0.6rem 0.75rem;
+  margin-top: 0.75rem;
+  /* admin-toolbar-card lg'de flex satır: kalan genişliği filtreler alsın */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.attendance-filters .attendance-filter {
+  flex: 0 1 11rem;
+  min-width: 8rem;
+}
+
+@media (min-width: 1024px) {
+  .attendance-filters {
+    margin-top: 0;
+  }
+}
+
+.attendance-filter-reset {
+  min-height: 2.5rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--adm-line, #e4e4e7);
+  border-radius: 999px;
+  background: transparent;
+  padding: 0 0.9rem;
+  font-family: var(--adm-display, inherit);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--adm-ink-2, #52525b);
+  cursor: pointer;
+  transition: background 0.13s ease, border-color 0.13s ease, color 0.13s ease;
+}
+
+.attendance-filter-reset:hover {
+  border-color: #d0cabb;
+  background: var(--adm-card-tint, #f7f6f2);
+  color: var(--adm-ink, #18181b);
+}
+
+/* Rapor — açılır tablo */
+.attendance-report {
+  padding: 0;
+  overflow: hidden;
+}
+
+.attendance-report-toggle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.attendance-report-toggle:hover {
+  background: var(--adm-card-tint, #fafaf9);
+}
+
+.attendance-report-chevron {
+  display: inline-flex;
+  color: var(--adm-ink-3, #a1a1aa);
+  transition: transform 0.15s ease;
+}
+
+.attendance-report-chevron.is-open {
+  transform: rotate(90deg);
+}
+
+.attendance-report-title {
+  font-family: var(--adm-display, inherit);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--adm-ink, #18181b);
+}
+
+.attendance-report-glance {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: var(--adm-ink-3, #71717a);
+  font-variant-numeric: tabular-nums;
+}
+
+.attendance-report-glance b {
+  font-weight: 800;
+  color: var(--adm-ink, #18181b);
+}
+
+.attendance-report-glance i {
+  font-style: normal;
+  color: var(--adm-line, #d4d4d8);
+}
+
+.attendance-report-body {
+  border-top: 1px solid var(--adm-hairline, #f1f1f0);
+  padding: 0.25rem 1rem 0.9rem;
+}
+
+.attendance-report-table th.attendance-report-num,
+.attendance-report-table td.attendance-report-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.attendance-report-count {
+  font-weight: 800;
+}
+
+.attendance-report-count.is-full {
+  color: var(--adm-green, #15803d);
+}
+.attendance-report-count.is-half {
+  color: var(--adm-amber, #b45309);
+}
+.attendance-report-count.is-absent {
+  color: var(--adm-red, #b91c1c);
+}
+.attendance-report-count.is-off {
+  color: var(--adm-blue, #1d4ed8);
+}
+
+.attendance-report-zero {
+  color: #d4d4d8;
+}
+
+.attendance-report-table tfoot td {
+  border-top: 1px solid var(--adm-line, #e4e4e7);
+  font-weight: 700;
+  color: var(--adm-ink, #18181b);
+}
+
+.attendance-report-footnote {
+  margin: 0.6rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--adm-ink-3, #a1a1aa);
+}
+
+/* Mazeret — liste satırında ikinci satır olarak */
+.attendance-excuse-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+}
+
+.attendance-excuse-tag {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #ede9fe;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #5b21b6;
+}
+
+/* Takvim hücresinde mazeret işareti */
+.attendance-cal-excuse-dot {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #7c3aed;
+}
+
+.attendance-cal-swatch.is-excuse {
+  background: #7c3aed;
+  border-color: #7c3aed;
+}
+
+/* Gün düzenleyici */
+.attendance-day-edit {
+  margin-top: 0.75rem;
+  border-top: 1px dashed var(--adm-line, #e4e4e7);
+  padding-top: 0.75rem;
+}
+
+.attendance-day-edit-hint {
+  margin: 0.75rem 0 0;
+  border-top: 1px dashed var(--adm-line, #e4e4e7);
+  padding-top: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--adm-ink-3, #71717a);
+}
+
+.attendance-day-edit-add {
+  width: 100%;
+  min-height: 2.5rem;
+  border: 1px dashed var(--adm-line, #d4d4d8);
+  border-radius: 0.65rem;
+  background: transparent;
+  font-family: var(--adm-display, inherit);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--adm-ink-2, #52525b);
+  cursor: pointer;
+}
+
+.attendance-day-edit-add:hover {
+  border-color: #a1a1aa;
+  background: var(--adm-card-tint, #fafaf9);
+  color: var(--adm-ink, #18181b);
+}
+
+.attendance-day-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.attendance-day-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.attendance-day-edit-field.is-wide {
+  grid-column: 1 / -1;
+}
+
+.attendance-day-edit .attendance-day-edit-field.is-wide {
+  margin-top: 0.6rem;
+}
+
+.attendance-day-edit-field > span {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--adm-ink-3, #71717a);
+}
+
+.attendance-day-edit-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--adm-ink-3, #a1a1aa);
+}
+
+.attendance-day-edit-error {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #b91c1c;
+}
+
+.attendance-day-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.attendance-day-edit-delete {
+  margin-left: auto;
+  min-height: 2.5rem;
+  border: 1px solid #fecaca;
+  border-radius: 0.65rem;
+  background: transparent;
+  padding: 0 0.85rem;
+  font-family: var(--adm-display, inherit);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #b91c1c;
+  cursor: pointer;
+}
+
+.attendance-day-edit-delete:hover {
+  background: #fef2f2;
+}
+
+.attendance-day-edit-delete:disabled,
+.attendance-day-edit-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

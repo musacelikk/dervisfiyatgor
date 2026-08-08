@@ -96,6 +96,25 @@ type EditState =
   | { mode: "create"; row: AttendanceRow }
   | null;
 
+/** Rapor tablosunda sayı hücresi — sıfır değerler soluk çizgi olarak görünür. */
+function ReportNum({
+  value,
+  tone,
+}: {
+  value: number;
+  tone: "full" | "half" | "absent" | "off";
+}) {
+  return (
+    <td className="attendance-report-num">
+      {value > 0 ? (
+        <b className={`attendance-report-count is-${tone}`}>{value}</b>
+      ) : (
+        <span className="attendance-report-zero">—</span>
+      )}
+    </td>
+  );
+}
+
 /** Yoklama satırının geç giriş rozeti — vardiya sınırı aşıldığında görünür. */
 function LateBadge({ row }: { row: AttendanceRow }) {
   if (!row.isLate) return null;
@@ -125,6 +144,7 @@ export default function AttendancePage() {
   const [detailFor, setDetailFor] = useState<{ id: number; name: string } | null>(null);
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [report, setReport] = useState<AttendanceReport | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -178,6 +198,16 @@ export default function AttendancePage() {
       setFrom(range.from);
       setTo(range.to);
     }
+  };
+
+  const filtersDirty = preset !== "today" || employeeId !== "" || statusFilter !== "";
+
+  const resetFilters = () => {
+    setPreset("today");
+    setFrom(today);
+    setTo(today);
+    setEmployeeId("");
+    setStatusFilter("");
   };
 
   const openEdit = (row: AttendanceRow) => {
@@ -264,58 +294,52 @@ export default function AttendancePage() {
 
   return (
     <div className="admin-page">
-      {/* Bugünün özeti */}
-      <div className="attendance-stats">
-        <div className="attendance-stat attendance-stat-primary">
-          <span className="attendance-stat-label">Bugün giriş yapan</span>
-          <span className="attendance-stat-value">{summary?.present ?? "—"}</span>
-          <span className="attendance-stat-hint">
-            {summary ? `${summary.totalEmployees} personelden` : ""}
+      {/* Bugünün özeti — tek satır çubuk, öğe sayısı değişse de yalnız kart oluşmaz */}
+      <div className="attendance-summary-bar">
+        <div className="attendance-summary-lead">
+          <span className="attendance-summary-lead-label">Bugün giriş yapan</span>
+          <span className="attendance-summary-lead-value">{summary?.present ?? "—"}</span>
+          <span className="attendance-summary-lead-hint">
+            {summary ? `${summary.totalEmployees} personelden` : "yükleniyor…"}
           </span>
         </div>
-        <div className="attendance-stat">
-          <span className="attendance-stat-label">Gelmeyen</span>
-          <span className="attendance-stat-value">{summary?.absent ?? "—"}</span>
-        </div>
-        {Boolean(summary?.off) && (
-          <div className="attendance-stat">
-            <span className="attendance-stat-label">İzinli</span>
-            <span className="attendance-stat-value">{summary?.off}</span>
+        <div className="attendance-summary-items">
+          <div className="attendance-summary-item">
+            <span className="attendance-summary-value">{summary?.absent ?? "—"}</span>
+            <span className="attendance-summary-label">Gelmeyen</span>
           </div>
-        )}
-        <div className="attendance-stat">
-          <span className="attendance-stat-label">Geç giriş</span>
-          <span className="attendance-stat-value attendance-stat-half">
-            {summary?.late ?? "—"}
-          </span>
-        </div>
-        <div className="attendance-stat">
-          <span className="attendance-stat-label">Tam gün</span>
-          <span className="attendance-stat-value attendance-stat-full">
-            {summary?.full ?? "—"}
-          </span>
-        </div>
-        <div className="attendance-stat">
-          <span className="attendance-stat-label">Yarım gün</span>
-          <span className="attendance-stat-value attendance-stat-half">
-            {summary?.half ?? "—"}
-          </span>
-        </div>
-        <div className="attendance-stat">
-          <span className="attendance-stat-label">Konum dışı deneme</span>
-          <span
-            className={`attendance-stat-value ${
-              (summary?.deniedAttempts ?? 0) > 0 ? "attendance-stat-warn" : ""
-            }`}
-          >
-            {summary?.deniedAttempts ?? "—"}
-          </span>
+          <div className="attendance-summary-item">
+            <span className="attendance-summary-value is-late">{summary?.late ?? "—"}</span>
+            <span className="attendance-summary-label">Geç giriş</span>
+          </div>
+          <div className="attendance-summary-item">
+            <span className="attendance-summary-value is-full">{summary?.full ?? "—"}</span>
+            <span className="attendance-summary-label">Tam gün</span>
+          </div>
+          <div className="attendance-summary-item">
+            <span className="attendance-summary-value is-late">{summary?.half ?? "—"}</span>
+            <span className="attendance-summary-label">Yarım gün</span>
+          </div>
+          {Boolean(summary?.off) && (
+            <div className="attendance-summary-item">
+              <span className="attendance-summary-value is-off">{summary?.off}</span>
+              <span className="attendance-summary-label">İzinli</span>
+            </div>
+          )}
+          {Boolean(summary?.deniedAttempts) && (
+            <div className="attendance-summary-item">
+              <span className="attendance-summary-value is-warn">
+                {summary?.deniedAttempts}
+              </span>
+              <span className="attendance-summary-label">Konum dışı deneme</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Filtreler */}
       <div className="admin-toolbar-card mt-4">
-        <div className="attendance-presets">
+        <div className="attendance-presets ">
           {(
             [
               ["today", "Bugün"],
@@ -361,23 +385,9 @@ export default function AttendancePage() {
               </label>
             </>
           )}
-          <label className="attendance-filter">
-            <span>Personel</span>
-            <select
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value ? Number(e.target.value) : "")}
-              className="admin-input"
-            >
-              <option value="">Tümü</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="attendance-filter">
-            <span>Durum</span>
+          <div className="flex gap-10">
+          <label className="flex items-center gap-2">
+            <span className="text-sm">Durum</span>
             <select
               value={statusFilter}
               onChange={(e) =>
@@ -392,84 +402,147 @@ export default function AttendancePage() {
               <option value="off">İzinli</option>
             </select>
           </label>
+          <label className="flex items-center gap-2">
+            <span className="text-sm">Personel</span>
+            <select
+              value={employeeId}
+              onChange={(e) => setEmployeeId(e.target.value ? Number(e.target.value) : "")}
+              className="admin-input"
+            >
+              <option value="">Tümü</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          </div>
+          {filtersDirty && (
+            <button
+              type="button"
+              className="attendance-filter-reset"
+              onClick={resetFilters}
+            >
+              Filtreleri temizle
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Aralık raporu */}
+      {/* Aralık raporu — varsayılan kapalı, başlıkta toplam özeti */}
       {report && (
-        <div className="attendance-report mt-4">
-          <div className="attendance-report-head">
-            <h2>
+        <section className="attendance-report mt-4">
+          <button
+            type="button"
+            className="attendance-report-toggle"
+            aria-expanded={reportOpen}
+            onClick={() => setReportOpen((open) => !open)}
+          >
+            <span
+              className={`attendance-report-chevron${reportOpen ? " is-open" : ""}`}
+              aria-hidden
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                <path
+                  fillRule="evenodd"
+                  d="M7.21 14.77a.75.75 0 01.02-1.06L10.94 10 7.23 6.29a.75.75 0 111.06-1.06l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </span>
+            <h2 className="attendance-report-title">
               {from === to
                 ? formatDate(from)
                 : `${formatDate(from)} – ${formatDate(to)}`}{" "}
               raporu
             </h2>
-            <span className="attendance-report-cutoff">
-              {cutoff}&apos;e kadar giriş = Tam Gün
-              {attendanceSettings && (
+            <span className="attendance-report-glance">
+              <b>{report.full}</b> tam
+              <i aria-hidden>·</i>
+              <b>{report.absent}</b> gelmedi
+              <i aria-hidden>·</i>
+              <b>{report.late}</b> geç
+              {report.off > 0 && (
                 <>
-                  {" · "}Geç giriş: 1. vardiya {attendanceSettings.shift1LateAfter}, 2.
-                  vardiya {attendanceSettings.shift2LateAfter}
+                  <i aria-hidden>·</i>
+                  <b>{report.off}</b> izinli
                 </>
               )}
             </span>
-          </div>
-          <div className="attendance-report-totals">
-            <span className="attendance-report-total">
-              <b>{report.full}</b> Tam Gün
-            </span>
-            <span className="attendance-report-total">
-              <b>{report.half}</b> Yarım Gün
-            </span>
-            <span className="attendance-report-total">
-              <b>{report.absent}</b> Gelmedi
-            </span>
-            <span className="attendance-report-total">
-              <b>{report.late}</b> Geç giriş ({formatLateMinutes(report.lateMinutes)})
-            </span>
-            {report.off > 0 && (
-              <span className="attendance-report-total">
-                <b>{report.off}</b> İzinli
-              </span>
-            )}
-          </div>
-          {report.perEmployee.length > 1 && (
-            <div className="attendance-report-list">
-              {report.perEmployee.map((row) => (
-                <div key={row.employeeId} className="attendance-report-row">
-                  <button
-                    type="button"
-                    className="attendance-report-name attendance-name-link"
-                    onClick={() =>
-                      setDetailFor({ id: row.employeeId, name: row.employeeName })
-                    }
-                  >
-                    {row.employeeName}
-                  </button>
-                  <span className="attendance-report-counts">
-                    <b className="text-emerald-700">{row.full}</b> tam ·{" "}
-                    <b className="text-amber-700">{row.half}</b> yarım ·{" "}
-                    <b className="text-zinc-500">{row.absent}</b> gelmedi
-                    {row.late > 0 && (
-                      <>
-                        {" "}
-                        · <b className="text-amber-700">{row.late}</b> geç (
-                        {formatLateMinutes(row.lateMinutes)})
-                      </>
-                    )}
-                    {row.off > 0 && (
-                      <>
-                        {" "}
-                        · <b className="text-blue-700">{row.off}</b> izinli
-                      </>
-                    )}
-                  </span>
-                </div>
-              ))}
+          </button>
+
+          {reportOpen && (
+            <div className="attendance-report-body">
+              <div className="admin-table-wrap">
+                <table className="admin-table attendance-report-table">
+                  <thead>
+                    <tr>
+                      <th>Personel</th>
+                      <th className="attendance-report-num">Tam</th>
+                      <th className="attendance-report-num">Yarım</th>
+                      <th className="attendance-report-num">Gelmedi</th>
+                      <th className="attendance-report-num">Geç giriş</th>
+                      <th className="attendance-report-num">Geç süre</th>
+                      <th className="attendance-report-num">İzinli</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.perEmployee.map((row) => (
+                      <tr key={row.employeeId}>
+                        <td>
+                          <button
+                            type="button"
+                            className="attendance-name-link"
+                            onClick={() =>
+                              setDetailFor({ id: row.employeeId, name: row.employeeName })
+                            }
+                          >
+                            {row.employeeName}
+                          </button>
+                        </td>
+                        <ReportNum value={row.full} tone="full" />
+                        <ReportNum value={row.half} tone="half" />
+                        <ReportNum value={row.absent} tone="absent" />
+                        <ReportNum value={row.late} tone="half" />
+                        <td className="attendance-report-num">
+                          {row.lateMinutes > 0 ? (
+                            formatLateMinutes(row.lateMinutes)
+                          ) : (
+                            <span className="attendance-report-zero">—</span>
+                          )}
+                        </td>
+                        <ReportNum value={row.off} tone="off" />
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>Toplam</td>
+                      <td className="attendance-report-num">{report.full}</td>
+                      <td className="attendance-report-num">{report.half}</td>
+                      <td className="attendance-report-num">{report.absent}</td>
+                      <td className="attendance-report-num">{report.late}</td>
+                      <td className="attendance-report-num">
+                        {formatLateMinutes(report.lateMinutes)}
+                      </td>
+                      <td className="attendance-report-num">{report.off}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <p className="attendance-report-footnote">
+                {cutoff}&apos;e kadar giriş = Tam Gün
+                {attendanceSettings && (
+                  <>
+                    {" · "}Geç giriş sınırı: 1. vardiya {attendanceSettings.shift1LateAfter},
+                    2. vardiya {attendanceSettings.shift2LateAfter}
+                  </>
+                )}
+              </p>
             </div>
           )}
-        </div>
+        </section>
       )}
 
       {error && <div className="admin-alert admin-alert-error mt-4">{error}</div>}
@@ -531,7 +604,13 @@ export default function AttendancePage() {
                       </span>
                     </td>
                     <td className="max-w-[12rem] text-xs text-zinc-600">
-                      {row.entry?.note ?? ""}
+                      {row.entry?.note && <span>{row.entry.note}</span>}
+                      {row.excuse && (
+                        <span className="attendance-excuse-line">
+                          <span className="attendance-excuse-tag">Mazeret</span>
+                          {row.excuse}
+                        </span>
+                      )}
                     </td>
                     <td>
                       <div className="admin-action-icons">
@@ -600,6 +679,12 @@ export default function AttendancePage() {
                     {row.entry?.note && (
                       <p className="mt-1 text-xs text-zinc-600">{row.entry.note}</p>
                     )}
+                    {row.excuse && (
+                      <p className="attendance-excuse-line mt-1 text-xs text-zinc-600">
+                        <span className="attendance-excuse-tag">Mazeret</span>
+                        {row.excuse}
+                      </p>
+                    )}
                   </div>
                   <span className={`${statusClass(row.status)} shrink-0`}>
                     {ATTENDANCE_LABELS[row.status]}
@@ -648,13 +733,14 @@ export default function AttendancePage() {
         onClose={() => setDetailFor(null)}
         size="lg"
         title={detailFor ? `${detailFor.name} — yoklama geçmişi` : "Yoklama geçmişi"}
-        description="Aylık/haftalık takvim, geç girişler ve devamsızlık özeti."
+        description="Bir güne dokunup durumu düzeltebilir, mazeret girebilirsiniz."
       >
         <div className="admin-modal-body">
           {detailFor && (
             <EmployeeAttendanceDetail
               employeeId={detailFor.id}
               employeeName={detailFor.name}
+              onChanged={() => void load()}
             />
           )}
         </div>
