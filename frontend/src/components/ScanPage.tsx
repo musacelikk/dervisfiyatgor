@@ -58,6 +58,8 @@ export default function ScanPage({
   const isManager = variant === "manager";
   const showPurchasePrices =
     isManager && hasPermission(permissions, "prices.purchase");
+  // Mağaza (müşteri) ekranında zaten alış/2. fiyat mantığı yok; kısıt personele uygulanır.
+  const showSalePrice2 = !isManager || hasPermission(permissions, "prices.sale2");
   const [barcode, setBarcode] = useState("");
   const [stockCode, setStockCode] = useState("");
   const [productName, setProductName] = useState("");
@@ -395,6 +397,7 @@ export default function ScanPage({
           <ProductDetailView
             product={selectedProduct}
             showPurchasePrices={showPurchasePrices}
+            showSalePrice2={showSalePrice2}
             onAddToCart={(quantity) => {
               handleAddToCart(selectedProduct, quantity);
               setCartOpen(true);
@@ -429,6 +432,7 @@ export default function ScanPage({
         personnelName={personnelName}
         priceTier={priceTier}
         onPriceTierChange={setPriceTier}
+        allowPrice2={showSalePrice2}
       />
     </div>
   );

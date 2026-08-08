@@ -13,12 +13,20 @@ import {
 import { revokeEmployeeSessionsFor } from "../services/sessions";
 import { revokeShiftTokensForEmployee } from "../services/shifts";
 import { normalizeHonorific, randomShiftCode } from "../lib/shiftCode";
+import { isEmployeeShift, type EmployeeShift } from "../lib/attendance";
 
 function parseShiftCode(body: Record<string, unknown>): string | null | undefined {
   if (!("shiftCode" in body)) return undefined;
   const v = body.shiftCode;
   if (v === null || v === "") return null;
   return typeof v === "string" ? v.trim() : undefined;
+}
+
+/** "1" | "2" (sayı da kabul edilir); gövdede yoksa undefined → alan değişmez. */
+function parseShift(body: Record<string, unknown>): EmployeeShift | undefined {
+  if (!("shift" in body)) return undefined;
+  const v = typeof body.shift === "number" ? String(body.shift) : body.shift;
+  return isEmployeeShift(v) ? v : undefined;
 }
 
 const router = Router();
@@ -60,6 +68,7 @@ router.post("/", async (req, res) => {
       permissions,
       shiftCode,
       honorific,
+      shift: parseShift(req.body ?? {}),
     });
     logAuditFromContext(getAuditContext(req), {
       action: "employee.create",
@@ -96,6 +105,7 @@ router.patch("/:id", async (req, res) => {
       permissions,
       shiftCode,
       honorific,
+      shift: parseShift(body),
     });
     const shiftCodeChanged =
       shiftCode !== undefined && shiftCode !== (before?.shift_code ?? null);

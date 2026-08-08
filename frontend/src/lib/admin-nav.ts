@@ -108,6 +108,9 @@ export function getAdminPageDescription(pathname: string, fallback: string): str
   if (pathname.startsWith("/admin/stok/urunler")) {
     return "Ürünleri arayın, ekleyin ve düzenleyin";
   }
+  if (pathname.startsWith("/admin/stok/kategoriler")) {
+    return "Satış kataloğu kategorilerini oluşturun ve düzenleyin";
+  }
   if (pathname.startsWith("/admin/stok/katalog")) {
     return "Excel ile toplu katalog yükleyin veya indirin";
   }

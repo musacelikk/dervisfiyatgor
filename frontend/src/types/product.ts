@@ -7,6 +7,14 @@ export type ProductImage = {
   createdAt?: string;
 };
 
+/** Katalog kategorisi — bir ürün birden fazla kategoride olabilir. */
+export type ProductCategory = {
+  id: number;
+  name: string;
+  sortOrder?: number;
+  productCount?: number;
+};
+
 export interface Product {
   stockCode: string;
   name: string;
@@ -23,6 +31,8 @@ export interface Product {
   countStatus?: StockCountStatus;
   images?: ProductImage[];
   imageUrl?: string | null;
+  categories?: ProductCategory[];
+  categoryIds?: number[];
 }
 
 export type StockCountStatus = "pending" | "updated" | "unchanged";
@@ -70,6 +80,7 @@ export type CatalogProduct = Pick<
 > & {
   images: ProductImage[];
   imageUrl: string | null;
+  categories: ProductCategory[];
 };
 
 export interface CatalogListResult {
@@ -81,6 +92,9 @@ export interface CatalogListResult {
   query: string;
   /** Admin ayarı: satış kataloğunda fiyat gösterilsin mi */
   showPrices: boolean;
+  /** Seçili kategori (yoksa "Tüm kategoriler") */
+  categoryId: number | null;
+  categories: ProductCategory[];
 }
 
 export interface HealthStatus {

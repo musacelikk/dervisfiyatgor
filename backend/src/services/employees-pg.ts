@@ -6,11 +6,12 @@ import {
   type PermissionId,
 } from "../lib/permissions";
 import { isValidShiftCode, type Honorific } from "../lib/shiftCode";
+import { normalizeShift, type EmployeeShift } from "../lib/attendance";
 import { rowToEmployee, type EmployeePublic, type EmployeeRow } from "../types/employee";
 import { verifyPassword } from "./employees-sqlite";
 
 const selectPublic = `
-  SELECT id, name, username, active, permissions, shift_code, honorific, created_at, updated_at
+  SELECT id, name, username, active, permissions, shift_code, honorific, shift, created_at, updated_at
   FROM employees
 `;
 
@@ -24,6 +25,7 @@ function mapRow(row: Record<string, unknown>): EmployeeRow {
     permissions: String(row.permissions),
     shift_code: row.shift_code == null ? null : String(row.shift_code),
     honorific: row.honorific == null ? null : String(row.honorific),
+    shift: row.shift == null ? null : String(row.shift),
     created_at:
       row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     updated_at:
@@ -97,12 +99,14 @@ export async function createEmployee(input: {
   permissions?: PermissionId[];
   shiftCode?: string | null;
   honorific?: Honorific | null;
+  shift?: EmployeeShift | null;
 }): Promise<EmployeePublic> {
   const name = input.name.trim();
   const username = input.username.trim().toLowerCase();
   const permissions = serializePermissions(input.permissions ?? DEFAULT_EMPLOYEE_PERMISSIONS);
   const shiftCode = (await validateShiftCode(input.shiftCode)) ?? null;
   const honorific = input.honorific ?? null;
+  const shift = normalizeShift(input.shift);
 
   if (name.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
   if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
@@ -114,10 +118,10 @@ export async function createEmployee(input: {
   if (existing) throw new Error("Bu kullanıcı adı zaten kayıtlı.");
 
   const { rows } = await getPool().query(
-    `INSERT INTO employees (name, username, password_hash, active, permissions, shift_code, honorific, updated_at)
-     VALUES ($1, $2, $3, TRUE, $4, $5, $6, NOW())
+    `INSERT INTO employees (name, username, password_hash, active, permissions, shift_code, honorific, shift, updated_at)
+     VALUES ($1, $2, $3, TRUE, $4, $5, $6, $7, NOW())
      RETURNING id`,
-    [name, username, hashPassword(input.password), permissions, shiftCode, honorific]
+    [name, username, hashPassword(input.password), permissions, shiftCode, honorific, shift]
   );
 
   const row = await findEmployeeById(Number(rows[0].id));
@@ -135,6 +139,7 @@ export async function updateEmployee(
     permissions?: PermissionId[];
     shiftCode?: string | null;
     honorific?: Honorific | null;
+    shift?: EmployeeShift | null;
   }
 ): Promise<EmployeePublic> {
   const row = await findEmployeeById(id);
@@ -151,6 +156,7 @@ export async function updateEmployee(
       ? await validateShiftCode(input.shiftCode, id)
       : row.shift_code;
   const honorific = input.honorific !== undefined ? input.honorific : row.honorific;
+  const shift = input.shift !== undefined ? normalizeShift(input.shift) : normalizeShift(row.shift);
 
   if (name.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
   if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
@@ -171,9 +177,9 @@ export async function updateEmployee(
   await getPool().query(
     `UPDATE employees
      SET name = $1, username = $2, password_hash = $3, active = $4, permissions = $5,
-         shift_code = $6, honorific = $7, updated_at = NOW()
-     WHERE id = $8`,
-    [name, username, passwordHash, active, permissions, shiftCode, honorific, id]
+         shift_code = $6, honorific = $7, shift = $8, updated_at = NOW()
+     WHERE id = $9`,
+    [name, username, passwordHash, active, permissions, shiftCode, honorific, shift, id]
   );
 
   const updated = await findEmployeeById(id);

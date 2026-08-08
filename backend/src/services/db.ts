@@ -58,6 +58,7 @@ export async function listProductsPaged(options: {
   q?: string;
   page: number;
   limit: number | "all";
+  categoryId?: number;
 }): Promise<{ rows: ProductRow[]; total: number }> {
   if (isPostgres()) return pg.listProductsPaged(options);
   return sqlite.listProductsPaged(options);

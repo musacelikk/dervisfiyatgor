@@ -9,14 +9,23 @@ import {
   maghribCutoffUTC,
 } from "../lib/sunset";
 import {
+  lateness,
+  normalizeShift,
   statusForCheckIn,
+  weekdayOf,
+  type AttendanceDayStatus,
   type AttendanceStatus,
   type AttendanceStatusOrAbsent,
+  type EmployeeShift,
 } from "../lib/attendance";
 import { listEmployees } from "./employees";
-import { getClosedDays } from "./settings";
+import { getAttendanceSettings, getClosedDays, type AttendanceSettings } from "./settings";
 import type {
+  AttendanceDay,
+  AttendanceEmployeeDetail,
+  AttendanceOffInfo,
   AttendanceReport,
+  AttendanceReportEmployee,
   AttendanceRow,
   AttendanceSummary,
   ShiftEntry,
@@ -25,6 +34,8 @@ import type {
 const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 gün
 /** Yoklama listeleri için üst sınır — aralık patlamasını önler. */
 const MAX_RANGE_DAYS = 92;
+/** Personel detay takvimi bir yıla kadar geriye/ileriye bakabilir. */
+const MAX_DETAIL_DAYS = 400;
 
 type Row = Record<string, unknown>;
 
@@ -285,6 +296,92 @@ function datesInRange(from: string, to: string): string[] {
   return out;
 }
 
+/** Takvim için gelecek günler dahil tüm aralık. */
+function allDatesInRange(from: string, to: string): string[] {
+  const out: string[] = [];
+  let cursor = from;
+  let guard = 0;
+  while (cursor <= to && guard < MAX_DETAIL_DAYS) {
+    out.push(cursor);
+    cursor = addDays(cursor, 1);
+    guard++;
+  }
+  return out;
+}
+
+/* ————————————————— İzin / vardiya türetmeleri ————————————————— */
+
+const WEEKDAY_NAMES = [
+  "Pazar",
+  "Pazartesi",
+  "Salı",
+  "Çarşamba",
+  "Perşembe",
+  "Cuma",
+  "Cumartesi",
+] as const;
+
+type OffResolver = (workDate: string) => AttendanceOffInfo | null;
+
+/** Haftalık otomatik izin günleri (varsayılan Pazar) + elle eklenen tatiller.
+ *  Haftalık kural her ay kendiliğinden uygulanır, elle işaretlemeye gerek yoktur. */
+async function buildOffResolver(): Promise<OffResolver> {
+  const [closedDays, settings] = await Promise.all([getClosedDays(), getAttendanceSettings()]);
+  const manual = new Map(closedDays.map((d) => [d.date, d]));
+  const weekly = new Set(settings.weeklyOffDays);
+
+  return (workDate) => {
+    const override = manual.get(workDate);
+    if (override) {
+      return { type: override.type, note: override.note, source: "manual" };
+    }
+    const weekday = weekdayOf(workDate);
+    if (weekly.has(weekday)) {
+      return {
+        type: "full",
+        note: `${WEEKDAY_NAMES[weekday] ?? "Haftalık"} — haftalık izin`,
+        source: "weekly",
+      };
+    }
+    return null;
+  };
+}
+
+/** Personelin vardiyasına karşılık gelen geç giriş sınırı ("HH:MM"). */
+export function shiftLateLimit(settings: AttendanceSettings, shift: EmployeeShift): string {
+  return shift === "2" ? settings.shift2LateAfter : settings.shift1LateAfter;
+}
+
+function entryLateness(
+  entry: ShiftEntry | null,
+  expectedStart: string
+): { isLate: boolean; lateMinutes: number } {
+  if (!entry) return { isLate: false, lateMinutes: 0 };
+  return lateness(new Date(entry.checkInAt), expectedStart);
+}
+
+/** Takvim rengi: yeşil (zamanında), sarı (geç), kırmızı (gelmedi), izinli, gri (veri yok). */
+function deriveDayStatus(input: {
+  workDate: string;
+  today: string;
+  hasEntry: boolean;
+  isLate: boolean;
+  off: AttendanceOffInfo | null;
+  beforeHire: boolean;
+}): AttendanceDayStatus {
+  if (input.hasEntry) return input.isLate ? "late" : "onTime";
+  if (input.beforeHire) return "future";
+  // İzin günleri önceden bellidir; gelecekteki pazarlar/tatiller de izinli görünür.
+  // Yarım gün izinde çalışma beklenir — gelinmediyse devamsızlık sayılır.
+  if (input.off && input.off.type === "full") return "off";
+  if (input.workDate > input.today) return "future";
+  return "absent";
+}
+
+function hiredBefore(createdAt: string | undefined, workDate: string): boolean {
+  return Boolean(createdAt) && workDate < createdAt!.slice(0, 10);
+}
+
 async function listEntriesRaw(filters: {
   employeeId?: number;
   from?: string;
@@ -349,7 +446,11 @@ export async function listAttendance(filters: {
     from: filters.from,
     to: filters.to,
   });
-  const closedDays = new Set((await getClosedDays()).map((d) => d.date));
+  const [resolveOff, settings] = await Promise.all([
+    buildOffResolver(),
+    getAttendanceSettings(),
+  ]);
+  const today = istanbulDateString();
 
   const byKey = new Map<string, ShiftEntry>();
   for (const entry of entries) {
@@ -359,13 +460,25 @@ export async function listAttendance(filters: {
   const days = datesInRange(filters.from, filters.to);
   const rows: AttendanceRow[] = [];
   for (const day of days) {
+    const off = resolveOff(day);
     for (const employee of targets) {
       // Personel işe alınmadan önceki günler yoklamaya girmez
-      if (employee.createdAt && day < employee.createdAt.slice(0, 10)) continue;
+      if (hiredBefore(employee.createdAt, day)) continue;
       const entry = byKey.get(`${employee.id}|${day}`) ?? null;
+      const shift = normalizeShift(employee.shift);
+      const expectedStart = shiftLateLimit(settings, shift);
+      const { isLate, lateMinutes } = entryLateness(entry, expectedStart);
+      const dayStatus = deriveDayStatus({
+        workDate: day,
+        today,
+        hasEntry: Boolean(entry),
+        isLate,
+        off,
+        beforeHire: false,
+      });
       const status: AttendanceStatusOrAbsent = entry
         ? entry.status
-        : closedDays.has(day)
+        : dayStatus === "off"
           ? "off"
           : "absent";
       if (filters.status && filters.status !== status) continue;
@@ -375,6 +488,12 @@ export async function listAttendance(filters: {
         workDate: day,
         status,
         entry,
+        shift,
+        expectedStart,
+        isLate,
+        lateMinutes,
+        dayStatus,
+        off,
       });
     }
   }
@@ -414,6 +533,7 @@ export async function getAttendanceSummary(
   const half = rows.filter((r) => r.status === "half").length;
   const absent = rows.filter((r) => r.status === "absent").length;
   const off = rows.filter((r) => r.status === "off").length;
+  const late = rows.filter((r) => r.isLate).length;
   return {
     workDate,
     totalEmployees: rows.length,
@@ -422,6 +542,7 @@ export async function getAttendanceSummary(
     full,
     half,
     off,
+    late,
     deniedAttempts: await countDeniedAttempts(workDate, workDate),
   };
 }
@@ -433,7 +554,7 @@ export async function getAttendanceReport(
   employeeId?: number
 ): Promise<AttendanceReport> {
   const rows = await listAttendance({ from, to, employeeId });
-  const perEmployee = new Map<number, AttendanceReport["perEmployee"][number]>();
+  const perEmployee = new Map<number, AttendanceReportEmployee>();
 
   for (const row of rows) {
     const current =
@@ -441,15 +562,22 @@ export async function getAttendanceReport(
       {
         employeeId: row.employeeId,
         employeeName: row.employeeName,
+        shift: row.shift,
         full: 0,
         half: 0,
         absent: 0,
         off: 0,
+        late: 0,
+        lateMinutes: 0,
       };
     if (row.status === "full") current.full++;
     else if (row.status === "half") current.half++;
     else if (row.status === "off") current.off++;
     else current.absent++;
+    if (row.isLate) {
+      current.late++;
+      current.lateMinutes += row.lateMinutes;
+    }
     perEmployee.set(row.employeeId, current);
   }
 
@@ -463,7 +591,86 @@ export async function getAttendanceReport(
     half: list.reduce((sum, e) => sum + e.half, 0),
     absent: list.reduce((sum, e) => sum + e.absent, 0),
     off: list.reduce((sum, e) => sum + e.off, 0),
+    late: list.reduce((sum, e) => sum + e.late, 0),
+    lateMinutes: list.reduce((sum, e) => sum + e.lateMinutes, 0),
     perEmployee: list,
+  };
+}
+
+/* ————————————————— Personel detay takvimi ————————————————— */
+
+/** Tek personelin verilen aralıktaki gün gün yoklaması + aylık/haftalık özeti.
+ *  Gelecek günler ve işe alım öncesi günler "future" (gri) döner. */
+export async function getEmployeeAttendanceDetail(
+  employeeId: number,
+  from: string,
+  to: string
+): Promise<AttendanceEmployeeDetail> {
+  await closeExpiredShiftEntries();
+
+  const employee = (await listEmployees()).find((e) => e.id === employeeId);
+  if (!employee) throw new Error("Personel bulunamadı.");
+
+  const [entries, resolveOff, settings] = await Promise.all([
+    listEntriesRaw({ employeeId, from, to }),
+    buildOffResolver(),
+    getAttendanceSettings(),
+  ]);
+
+  const shift = normalizeShift(employee.shift);
+  const expectedStart = shiftLateLimit(settings, shift);
+  const today = istanbulDateString();
+  const byDate = new Map(entries.map((entry) => [entry.workDate, entry]));
+
+  const days: AttendanceDay[] = allDatesInRange(from, to).map((date) => {
+    const entry = byDate.get(date) ?? null;
+    const off = resolveOff(date);
+    const { isLate, lateMinutes } = entryLateness(entry, expectedStart);
+    const dayStatus = deriveDayStatus({
+      workDate: date,
+      today,
+      hasEntry: Boolean(entry),
+      isLate,
+      off,
+      beforeHire: hiredBefore(employee.createdAt, date),
+    });
+    return {
+      date,
+      weekday: weekdayOf(date),
+      dayStatus,
+      status: entry?.status ?? null,
+      shift,
+      expectedStart,
+      checkInAt: entry?.checkInAt ?? null,
+      checkOutAt: entry?.checkOutAt ?? null,
+      isLate,
+      lateMinutes,
+      note: entry?.note ?? null,
+      entryId: entry?.id ?? null,
+      off,
+    };
+  });
+
+  const summary = {
+    workDays: days.filter((d) => d.dayStatus !== "off" && d.dayStatus !== "future").length,
+    present: days.filter((d) => d.dayStatus === "onTime" || d.dayStatus === "late").length,
+    absent: days.filter((d) => d.dayStatus === "absent").length,
+    lateCount: days.filter((d) => d.dayStatus === "late").length,
+    lateMinutes: days.reduce((sum, d) => sum + d.lateMinutes, 0),
+    offDays: days.filter((d) => d.dayStatus === "off").length,
+    fullDays: days.filter((d) => d.status === "full").length,
+    halfDays: days.filter((d) => d.status === "half").length,
+  };
+
+  return {
+    employeeId: employee.id,
+    employeeName: employee.name,
+    shift,
+    expectedStart,
+    from,
+    to,
+    days,
+    summary,
   };
 }
 

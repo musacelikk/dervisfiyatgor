@@ -14,7 +14,7 @@ function resolveDataDir(): string {
 
 let sqliteDb: Database.Database | null = null;
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 const NAME_SEARCH_LIMIT = 30;
 
 function tableColumns(database: Database.Database, table: string): Set<string> {
@@ -203,6 +203,28 @@ function applyMigrationStep(database: Database.Database, fromVersion: number): v
       `);
       return;
     }
+    case 15:
+      addColumnIfMissing(database, "employees", "shift", "TEXT");
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS product_categories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL COLLATE NOCASE,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_product_categories_name
+          ON product_categories(name);
+        CREATE TABLE IF NOT EXISTS product_category_map (
+          stock_code TEXT NOT NULL,
+          category_id INTEGER NOT NULL,
+          PRIMARY KEY (stock_code, category_id),
+          FOREIGN KEY (stock_code) REFERENCES products(stock_code) ON DELETE CASCADE,
+          FOREIGN KEY (category_id) REFERENCES product_categories(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_product_category_map_category
+          ON product_category_map(category_id);
+      `);
+      return;
     default:
       return;
   }
@@ -276,6 +298,7 @@ export function initSqliteDatabase(): void {
       permissions TEXT NOT NULL DEFAULT '["scan"]',
       shift_code TEXT,
       honorific TEXT,
+      shift TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -293,6 +316,9 @@ export function initSqliteDatabase(): void {
   }
   if (!employeeCols.some((c) => c.name === "honorific")) {
     sqliteDb.exec(`ALTER TABLE employees ADD COLUMN honorific TEXT`);
+  }
+  if (!employeeCols.some((c) => c.name === "shift")) {
+    sqliteDb.exec(`ALTER TABLE employees ADD COLUMN shift TEXT`);
   }
   sqliteDb.exec(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_shift_code
@@ -423,6 +449,23 @@ export function initSqliteDatabase(): void {
     );
     CREATE INDEX IF NOT EXISTS idx_shift_denied_date
       ON shift_denied_attempts(work_date DESC);
+    CREATE TABLE IF NOT EXISTS product_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL COLLATE NOCASE,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_product_categories_name
+      ON product_categories(name);
+    CREATE TABLE IF NOT EXISTS product_category_map (
+      stock_code TEXT NOT NULL,
+      category_id INTEGER NOT NULL,
+      PRIMARY KEY (stock_code, category_id),
+      FOREIGN KEY (stock_code) REFERENCES products(stock_code) ON DELETE CASCADE,
+      FOREIGN KEY (category_id) REFERENCES product_categories(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_product_category_map_category
+      ON product_category_map(category_id);
   `);
 }
 
@@ -585,6 +628,7 @@ export function listProductsPaged(options: {
   q?: string;
   page: number;
   limit: number | "all";
+  categoryId?: number;
 }): { rows: ProductRow[]; total: number } {
   const db = getDb();
   const page = Math.max(1, options.page);
@@ -593,47 +637,52 @@ export function listProductsPaged(options: {
     typeof options.limit === "number"
       ? Math.min(100_000, Math.max(1, options.limit))
       : 25;
-  const limit = unlimited ? getProductCount() || 1 : limitNum;
-  const offset = unlimited ? 0 : (page - 1) * limit;
   const q = options.q?.trim() ?? "";
 
-  if (!q) {
-    const total = getProductCount();
-    const rows = unlimited
-      ? (db
-          .prepare(`SELECT ${selectFields} FROM products ORDER BY name COLLATE NOCASE`)
-          .all() as ProductRow[])
-      : (db
-          .prepare(
-            `SELECT ${selectFields} FROM products ORDER BY name COLLATE NOCASE LIMIT ? OFFSET ?`
-          )
-          .all(limit, offset) as ProductRow[]);
-    return { rows, total };
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (q) {
+    const pattern = buildSearchLikePattern(q);
+    conditions.push(`(
+      name_norm LIKE ? ESCAPE '\\'
+      OR stock_code_norm LIKE ? ESCAPE '\\'
+      OR barcode_norm LIKE ? ESCAPE '\\'
+      OR group_name_norm LIKE ? ESCAPE '\\'
+    )`);
+    params.push(pattern, pattern, pattern, pattern);
+  }
+  if (options.categoryId) {
+    conditions.push(
+      `EXISTS (
+        SELECT 1 FROM product_category_map m
+        WHERE m.stock_code = products.stock_code AND m.category_id = ?
+      )`
+    );
+    params.push(options.categoryId);
   }
 
-  const pattern = buildSearchLikePattern(q);
-  const where = `
-    name_norm LIKE ? ESCAPE '\\'
-    OR stock_code_norm LIKE ? ESCAPE '\\'
-    OR barcode_norm LIKE ? ESCAPE '\\'
-    OR group_name_norm LIKE ? ESCAPE '\\'
-  `;
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const countRow = db
-    .prepare(`SELECT COUNT(*) as count FROM products WHERE ${where}`)
-    .get(pattern, pattern, pattern, pattern) as { count: number };
+    .prepare(`SELECT COUNT(*) as count FROM products ${where}`)
+    .get(...params) as { count: number };
+  const total = countRow.count;
+  const limit = unlimited ? total || 1 : limitNum;
+  const offset = unlimited ? 0 : (page - 1) * limit;
+
   const rows = unlimited
     ? (db
         .prepare(
-          `SELECT ${selectFields} FROM products WHERE ${where} ORDER BY name COLLATE NOCASE`
+          `SELECT ${selectFields} FROM products ${where} ORDER BY name COLLATE NOCASE`
         )
-        .all(pattern, pattern, pattern, pattern) as ProductRow[])
+        .all(...params) as ProductRow[])
     : (db
         .prepare(
-          `SELECT ${selectFields} FROM products WHERE ${where} ORDER BY name COLLATE NOCASE LIMIT ? OFFSET ?`
+          `SELECT ${selectFields} FROM products ${where} ORDER BY name COLLATE NOCASE LIMIT ? OFFSET ?`
         )
-        .all(pattern, pattern, pattern, pattern, limit, offset) as ProductRow[]);
+        .all(...params, limit, offset) as ProductRow[]);
 
-  return { rows, total: countRow.count };
+  return { rows, total };
 }
 
 export function createProduct(product: Product): void {

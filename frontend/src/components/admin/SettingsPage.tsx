@@ -7,9 +7,20 @@ import {
   startStockCount,
   stopStockCount,
 } from "@/lib/admin-api";
-import { addClosedDay, fetchClosedDays, removeClosedDay } from "@/lib/attendance-api";
+import {
+  addClosedDay,
+  fetchAdminSettings,
+  fetchClosedDays,
+  removeClosedDay,
+  saveAdminSettings,
+} from "@/lib/attendance-api";
 import type { StockCountState } from "@/types/product";
-import type { ClosedDay } from "@/types/shift";
+import {
+  WEEKDAY_LABELS,
+  type AttendanceSettings,
+  type ClosedDay,
+  type ClosedDayType,
+} from "@/types/shift";
 
 function formatClosedDayDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-");
@@ -42,8 +53,14 @@ export default function SettingsPage() {
   const [closedDaysLoading, setClosedDaysLoading] = useState(true);
   const [closedDayDate, setClosedDayDate] = useState("");
   const [closedDayNote, setClosedDayNote] = useState("");
+  const [closedDayType, setClosedDayType] = useState<ClosedDayType>("full");
   const [closedDaySaving, setClosedDaySaving] = useState(false);
   const [closedDayError, setClosedDayError] = useState<string | null>(null);
+
+  const [attendance, setAttendance] = useState<AttendanceSettings | null>(null);
+  const [attendanceSaving, setAttendanceSaving] = useState(false);
+  const [attendanceSaved, setAttendanceSaved] = useState(false);
+  const [attendanceError, setAttendanceError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,13 +73,11 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-    // Katalog ayarı bağımsız yüklenir
+    // Katalog + yoklama ayarları bağımsız yüklenir
     try {
-      const res = await fetch("/api/admin/settings");
-      const body = await res.json().catch(() => ({}));
-      if (res.ok && body.settings) {
-        setShowPrices(Boolean(body.settings.catalogShowPrices));
-      }
+      const settings = await fetchAdminSettings();
+      setShowPrices(Boolean(settings.catalogShowPrices));
+      setAttendance(settings.attendance);
     } catch {
       /* toggle "yüklenemedi" durumunda kalır */
     }
@@ -83,9 +98,10 @@ export default function SettingsPage() {
     setClosedDaySaving(true);
     setClosedDayError(null);
     try {
-      setClosedDays(await addClosedDay(closedDayDate, closedDayNote || null));
+      setClosedDays(await addClosedDay(closedDayDate, closedDayNote || null, closedDayType));
       setClosedDayDate("");
       setClosedDayNote("");
+      setClosedDayType("full");
     } catch (err) {
       setClosedDayError(err instanceof Error ? err.message : "İzinli gün eklenemedi.");
     } finally {
@@ -108,22 +124,43 @@ export default function SettingsPage() {
     setPriceBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ catalogShowPrices: !showPrices }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(
-          typeof body.error === "string" ? body.error : "Ayar kaydedilemedi."
-        );
-      }
-      setShowPrices(Boolean(body.settings?.catalogShowPrices));
+      const settings = await saveAdminSettings({ catalogShowPrices: !showPrices });
+      setShowPrices(Boolean(settings.catalogShowPrices));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ayar kaydedilemedi.");
     } finally {
       setPriceBusy(false);
+    }
+  };
+
+  const toggleWeeklyOffDay = (weekday: number) => {
+    setAttendance((current) => {
+      if (!current) return current;
+      const has = current.weeklyOffDays.includes(weekday);
+      return {
+        ...current,
+        weeklyOffDays: has
+          ? current.weeklyOffDays.filter((d) => d !== weekday)
+          : [...current.weeklyOffDays, weekday].sort((a, b) => a - b),
+      };
+    });
+    setAttendanceSaved(false);
+  };
+
+  const handleSaveAttendance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!attendance) return;
+    setAttendanceSaving(true);
+    setAttendanceError(null);
+    setAttendanceSaved(false);
+    try {
+      const settings = await saveAdminSettings({ attendance });
+      setAttendance(settings.attendance);
+      setAttendanceSaved(true);
+    } catch (err) {
+      setAttendanceError(err instanceof Error ? err.message : "Ayar kaydedilemedi.");
+    } finally {
+      setAttendanceSaving(false);
     }
   };
 
@@ -224,10 +261,105 @@ export default function SettingsPage() {
 
       <section className="admin-card settings-section">
         <div className="settings-section-head">
-          <h2 className="admin-card-title">İzinli günler</h2>
+          <h2 className="admin-card-title">Vardiya ve geç giriş</h2>
           <p className="settings-section-desc">
-            Dükkanın kapalı/izinli olduğu günleri ekleyin. Bu günlerde giriş yapmayan
-            personel Yoklama&apos;da &quot;Gelmedi&quot; değil, &quot;İzinli&quot; olarak görünür.
+            Her vardiyanın mesai başlangıç saatini belirleyin. Belirlenen saatte yapılan
+            giriş zamanında sayılır; saat geçildiği anda (örn. 08:30 sınırında 08:31)
+            personel geç giriş olarak işaretlenir. Personelin hangi vardiyada olduğu
+            Personel yönetiminden seçilir.
+          </p>
+        </div>
+
+        {attendance === null ? (
+          <p className="admin-muted text-sm">Ayarlar yükleniyor…</p>
+        ) : (
+          <form onSubmit={handleSaveAttendance}>
+            <div className="admin-form-grid">
+              <div>
+                <label className="admin-label" htmlFor="shift1-late">
+                  1. vardiya geç giriş saati
+                </label>
+                <input
+                  id="shift1-late"
+                  type="time"
+                  className="admin-input"
+                  value={attendance.shift1LateAfter}
+                  onChange={(e) => {
+                    const shift1LateAfter = e.target.value;
+                    setAttendance((c) => (c ? { ...c, shift1LateAfter } : c));
+                    setAttendanceSaved(false);
+                  }}
+                  required
+                />
+              </div>
+              <div>
+                <label className="admin-label" htmlFor="shift2-late">
+                  2. vardiya geç giriş saati
+                </label>
+                <input
+                  id="shift2-late"
+                  type="time"
+                  className="admin-input"
+                  value={attendance.shift2LateAfter}
+                  onChange={(e) => {
+                    const shift2LateAfter = e.target.value;
+                    setAttendance((c) => (c ? { ...c, shift2LateAfter } : c));
+                    setAttendanceSaved(false);
+                  }}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="admin-label">Otomatik izin günleri (her hafta)</label>
+              <p className="text-xs text-zinc-500">
+                Seçilen günler tüm personel için her hafta otomatik izinli sayılır; her ay
+                tek tek işaretlemeniz gerekmez.
+              </p>
+              <div className="settings-weekdays mt-2">
+                {WEEKDAY_LABELS.map((label, index) => {
+                  const active = attendance.weeklyOffDays.includes(index);
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      className={`settings-weekday ${active ? "is-active" : ""}`}
+                      aria-pressed={active}
+                      onClick={() => toggleWeeklyOffDay(index)}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {attendanceError && (
+              <p className="mt-3 text-sm text-red-600">{attendanceError}</p>
+            )}
+            {attendanceSaved && (
+              <p className="settings-success mt-3 text-sm">Yoklama ayarları kaydedildi.</p>
+            )}
+
+            <div className="settings-action-row">
+              <button type="submit" className="admin-btn-primary" disabled={attendanceSaving}>
+                {attendanceSaving ? "Kaydediliyor…" : "Kaydet"}
+              </button>
+            </div>
+          </form>
+        )}
+      </section>
+
+      <section className="admin-card settings-section">
+        <div className="settings-section-head">
+          <h2 className="admin-card-title">İzinli günler (bayram / resmi tatil)</h2>
+          <p className="settings-section-desc">
+            Tek seferlik izinli günleri buradan ekleyin. Tam gün izinlerde giriş yapmayan
+            personel Yoklama&apos;da &quot;Gelmedi&quot; değil, &quot;İzinli&quot; görünür.
+            Yarım gün izinlerde çalışma beklenir; gün takvimde yarım gün olarak işaretlenir.
+            Haftalık düzenli izinler için üstteki &quot;Otomatik izin günleri&quot; ayarını
+            kullanın.
           </p>
         </div>
 
@@ -240,6 +372,15 @@ export default function SettingsPage() {
             required
             aria-label="Tarih"
           />
+          <select
+            className="admin-input"
+            value={closedDayType}
+            onChange={(e) => setClosedDayType(e.target.value as ClosedDayType)}
+            aria-label="İzin tipi"
+          >
+            <option value="full">Tam gün</option>
+            <option value="half">Yarım gün</option>
+          </select>
           <input
             type="text"
             className="admin-input"
@@ -270,6 +411,11 @@ export default function SettingsPage() {
             {closedDays.map((day) => (
               <li key={day.date} className="closed-days-row">
                 <span className="closed-days-date">{formatClosedDayDate(day.date)}</span>
+                <span
+                  className={`closed-days-type ${day.type === "half" ? "is-half" : ""}`}
+                >
+                  {day.type === "half" ? "Yarım gün" : "Tam gün"}
+                </span>
                 {day.note && <span className="closed-days-note">{day.note}</span>}
                 <button
                   type="button"

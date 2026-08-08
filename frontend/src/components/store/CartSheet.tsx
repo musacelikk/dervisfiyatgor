@@ -26,6 +26,8 @@ type CartSheetProps = {
   personnelName?: string;
   priceTier: PriceTier;
   onPriceTierChange: (tier: PriceTier) => void;
+  /** "Satış 2 görüntüleme" yetkisi yoksa 2. fiyat hiç gösterilmez. */
+  allowPrice2?: boolean;
 };
 
 export default function CartSheet({
@@ -37,6 +39,7 @@ export default function CartSheet({
   personnelName,
   priceTier,
   onPriceTierChange,
+  allowPrice2 = true,
 }: CartSheetProps) {
   const isPersonnel = mode === "personnel" && Boolean(personnelName?.trim());
   const personnelCustomerName = personnelName
@@ -54,24 +57,27 @@ export default function CartSheet({
 
   const itemCount = useMemo(() => cartItemCount(lines), [lines]);
 
-  const getUnitPrice = (product: CartLine["product"]) => productUnitPrice(product, priceTier);
+  const effectiveTier: PriceTier = allowPrice2 ? priceTier : 1;
+
+  const getUnitPrice = (product: CartLine["product"]) =>
+    productUnitPrice(product, effectiveTier);
 
   const total = useMemo(() => {
     let sum = 0;
     let hasPrice = false;
     for (const line of lines) {
-      const price = getUnitPrice(line.product);
+      const price = productUnitPrice(line.product, effectiveTier);
       if (price != null) {
         hasPrice = true;
         sum += price * line.quantity;
       }
     }
     return hasPrice ? sum : null;
-  }, [lines, priceTier]);
+  }, [lines, effectiveTier]);
 
   const hasAnyPrice2 = useMemo(
-    () => lines.some((l) => l.product.salePrice2 != null),
-    [lines]
+    () => allowPrice2 && lines.some((l) => l.product.salePrice2 != null),
+    [lines, allowPrice2]
   );
 
   const cartScope = isPersonnel ? "personnel" : "store";
@@ -172,7 +178,7 @@ export default function CartSheet({
         customerName: isPersonnel ? personnelCustomerName : fullName.trim() || "—",
         phone: isPersonnel ? undefined : phone.trim() || undefined,
         orderCode: "—",
-        priceTier,
+        priceTier: effectiveTier,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "PDF oluşturulamadı.");
@@ -204,7 +210,7 @@ export default function CartSheet({
         customerName: isPersonnel ? personnelCustomerName : fullName.trim() || "—",
         phone: isPersonnel ? undefined : phone.trim() || undefined,
         orderCode: "—",
-        priceTier,
+        priceTier: effectiveTier,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Excel oluşturulamadı.");

@@ -19,8 +19,10 @@ export async function GET(request: Request) {
   const q = searchParams.get("q") ?? "";
   const page = searchParams.get("page") ?? "1";
   const limit = searchParams.get("limit") ?? "25";
+  const categoryId = searchParams.get("categoryId");
   const query = new URLSearchParams({ page, limit });
   if (q) query.set("q", q);
+  if (categoryId) query.set("categoryId", categoryId);
 
   try {
     const data = await adminBackendFetch<ProductListResult>(

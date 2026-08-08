@@ -1,10 +1,13 @@
 import type {
+  AttendanceEmployeeDetail,
   AttendanceListResult,
   AttendanceReport,
+  AttendanceSettings,
   AttendanceStatus,
   AttendanceStatusOrAbsent,
   AttendanceSummary,
   ClosedDay,
+  ClosedDayType,
   ShiftEntry,
 } from "@/types/shift";
 
@@ -54,6 +57,20 @@ export async function fetchAttendanceReport(
     "Rapor yüklenemedi."
   );
   return body.report;
+}
+
+/** Tek personelin takvim detayı + aylık özeti. */
+export async function fetchEmployeeAttendance(
+  employeeId: number,
+  from: string,
+  to: string
+): Promise<AttendanceEmployeeDetail> {
+  const params = new URLSearchParams({ from, to });
+  const body = await jsonFetch<{ detail: AttendanceEmployeeDetail }>(
+    `/api/admin/shifts/employee/${employeeId}?${params}`,
+    "Personel yoklaması yüklenemedi."
+  );
+  return body.detail;
 }
 
 export async function createAttendanceEntry(input: {
@@ -108,17 +125,51 @@ export async function fetchClosedDays(): Promise<ClosedDay[]> {
   return body.closedDays;
 }
 
-export async function addClosedDay(date: string, note: string | null): Promise<ClosedDay[]> {
+export async function addClosedDay(
+  date: string,
+  note: string | null,
+  type: ClosedDayType = "full"
+): Promise<ClosedDay[]> {
   const body = await jsonFetch<{ closedDays: ClosedDay[] }>(
     "/api/admin/settings/closed-days",
     "İzinli gün eklenemedi.",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, note }),
+      body: JSON.stringify({ date, note, type }),
     }
   );
   return body.closedDays;
+}
+
+/* ————— Vardiya / haftalık izin ayarları ————— */
+
+type AdminSettingsResponse = {
+  settings: { catalogShowPrices: boolean; attendance: AttendanceSettings };
+};
+
+export async function fetchAdminSettings(): Promise<AdminSettingsResponse["settings"]> {
+  const body = await jsonFetch<AdminSettingsResponse>(
+    "/api/admin/settings",
+    "Ayarlar yüklenemedi."
+  );
+  return body.settings;
+}
+
+export async function saveAdminSettings(input: {
+  catalogShowPrices?: boolean;
+  attendance?: Partial<AttendanceSettings>;
+}): Promise<AdminSettingsResponse["settings"]> {
+  const body = await jsonFetch<AdminSettingsResponse>(
+    "/api/admin/settings",
+    "Ayar kaydedilemedi.",
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }
+  );
+  return body.settings;
 }
 
 export async function removeClosedDay(date: string): Promise<ClosedDay[]> {

@@ -1,5 +1,5 @@
 import type { PermissionId } from "@/lib/permissions";
-import type { ShiftHonorific } from "./shift";
+import type { EmployeeShift, ShiftHonorific } from "./shift";
 
 export interface Employee {
   id: number;
@@ -9,6 +9,8 @@ export interface Employee {
   permissions: PermissionId[];
   shiftCode: string | null;
   honorific: ShiftHonorific;
+  /** "1" | "2" — geç giriş kontrolü bu vardiyanın sınır saatine göre yapılır */
+  shift: EmployeeShift;
   createdAt: string;
   updatedAt: string;
 }

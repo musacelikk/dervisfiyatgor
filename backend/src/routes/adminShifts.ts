@@ -8,6 +8,7 @@ import {
   adminUpdateEntry,
   getAttendanceReport,
   getAttendanceSummary,
+  getEmployeeAttendanceDetail,
   listAttendance,
 } from "../services/shifts";
 import {
@@ -16,6 +17,7 @@ import {
   istanbulDateTimeToUtc,
   type AttendanceStatusOrAbsent,
 } from "../lib/attendance";
+import { getAttendanceSettings } from "../services/settings";
 import { getShopLocation, getShopRadiusMeters, istanbulDateString } from "../lib/sunset";
 
 const router = Router();
@@ -53,6 +55,7 @@ router.get("/", async (req, res) => {
       from,
       to,
       cutoff: halfDayCutoff().label,
+      attendanceSettings: await getAttendanceSettings(),
       shopLocation: getShopLocation(),
       radiusM: getShopRadiusMeters(),
     });
@@ -89,6 +92,26 @@ router.get("/report", async (req, res) => {
     res.status(500).json({
       error: err instanceof Error ? err.message : "Rapor yüklenemedi.",
     });
+  }
+});
+
+/** Tek personelin takvim detayı — gün gün durum + aylık özet. */
+router.get("/employee/:employeeId", async (req, res) => {
+  const employeeId = Number(req.params.employeeId);
+  if (!Number.isFinite(employeeId) || employeeId < 1) {
+    res.status(400).json({ error: "Geçersiz personel id." });
+    return;
+  }
+
+  const today = istanbulDateString();
+  const from = parseDate(req.query.from, today.slice(0, 8) + "01");
+  const to = parseDate(req.query.to, today);
+
+  try {
+    res.json({ detail: await getEmployeeAttendanceDetail(employeeId, from, to) });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Personel yoklaması yüklenemedi.";
+    res.status(message.includes("bulunamadı") ? 404 : 500).json({ error: message });
   }
 });
 

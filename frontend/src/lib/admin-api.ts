@@ -3,7 +3,14 @@ import type { PageSizeOption } from "@/lib/permissions";
 import { pageSizeToLimit } from "@/lib/permissions";
 import type { Employee } from "@/types/employee";
 import type { PermissionId } from "@/lib/permissions";
-import type { ImportResult, Product, ProductListResult, StockCountState } from "@/types/product";
+import type { EmployeeShift } from "@/types/shift";
+import type {
+  ImportResult,
+  Product,
+  ProductCategory,
+  ProductListResult,
+  StockCountState,
+} from "@/types/product";
 
 async function downloadExcel(type: "template" | "catalog"): Promise<void> {
   const res = await fetch(`/api/admin/export?type=${type}`);
@@ -101,6 +108,7 @@ export async function createEmployee(input: {
   permissions?: PermissionId[];
   shiftCode?: string | null;
   honorific?: "Bey" | "Hanım" | null;
+  shift?: EmployeeShift;
 }): Promise<Employee> {
   const res = await fetch("/api/admin/employees", {
     method: "POST",
@@ -124,6 +132,7 @@ export async function updateEmployee(
     permissions: PermissionId[];
     shiftCode: string | null;
     honorific: "Bey" | "Hanım" | null;
+    shift: EmployeeShift;
   }>
 ): Promise<Employee> {
   const res = await fetch(`/api/admin/employees/${id}`, {
@@ -150,10 +159,12 @@ export async function fetchProducts(params: {
   q?: string;
   page?: number;
   pageSize?: PageSizeOption;
+  categoryId?: number;
 }): Promise<ProductListResult> {
   const search = new URLSearchParams();
   if (params.q) search.set("q", params.q);
   if (params.page) search.set("page", String(params.page));
+  if (params.categoryId) search.set("categoryId", String(params.categoryId));
   const limit = pageSizeToLimit(params.pageSize ?? 25);
   search.set("limit", limit === "all" ? "all" : String(limit));
 
@@ -202,6 +213,48 @@ export async function deleteProduct(stockCode: string): Promise<void> {
   if (!res.ok) {
     throw new Error(typeof body.error === "string" ? body.error : "Silinemedi.");
   }
+}
+
+/* ————— Katalog kategorileri ————— */
+
+async function categoriesFetch(
+  url: string,
+  fallback: string,
+  init?: RequestInit
+): Promise<ProductCategory[]> {
+  const res = await fetch(url, init);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof body.error === "string" ? body.error : fallback);
+  }
+  return (body.categories ?? []) as ProductCategory[];
+}
+
+export function fetchCategories(): Promise<ProductCategory[]> {
+  return categoriesFetch("/api/admin/categories", "Kategoriler yüklenemedi.");
+}
+
+export function createCategory(name: string): Promise<ProductCategory[]> {
+  return categoriesFetch("/api/admin/categories", "Kategori eklenemedi.", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function renameCategory(id: number, name: string): Promise<ProductCategory[]> {
+  return categoriesFetch(`/api/admin/categories/${id}`, "Kategori güncellenemedi.", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+/** Kategoriyi siler; ürünler korunur, yalnızca bağlantıları kaldırılır. */
+export function deleteCategory(id: number): Promise<ProductCategory[]> {
+  return categoriesFetch(`/api/admin/categories/${id}`, "Kategori silinemedi.", {
+    method: "DELETE",
+  });
 }
 
 export async function fetchAuditStats(): Promise<AuditStats> {

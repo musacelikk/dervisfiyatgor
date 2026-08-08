@@ -12,6 +12,11 @@ import {
 } from "../services/db";
 import { rowToProduct } from "../lib/product-map";
 import {
+  getCategoryIdsForProduct,
+  listCategoriesForStockCodes,
+  setProductCategories,
+} from "../services/categories";
+import {
   getStockCountState,
   getStockCountStatuses,
   isStockCountActive,
@@ -70,6 +75,14 @@ function parseBody(body: unknown): Partial<Product> {
   };
 }
 
+/** Bir ürün birden fazla kategoride olabilir; gövdede yoksa undefined → bağlantı değişmez. */
+function parseCategoryIds(body: unknown): number[] | undefined {
+  if (!body || typeof body !== "object") return undefined;
+  const raw = (body as Record<string, unknown>).categoryIds;
+  if (!Array.isArray(raw)) return undefined;
+  return raw.map(Number).filter((n) => Number.isInteger(n) && n > 0);
+}
+
 function parseLimit(raw: unknown): number | "all" {
   if (raw === "all" || raw === "0") return "all";
   const n = Number(raw);
@@ -82,8 +95,16 @@ router.get("/", async (req, res) => {
   const q = String(req.query.q ?? "").trim();
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = parseLimit(req.query.limit);
+  const categoryIdRaw = Number(req.query.categoryId);
+  const categoryId =
+    Number.isInteger(categoryIdRaw) && categoryIdRaw > 0 ? categoryIdRaw : undefined;
 
-  const { rows, total } = await listProductsPaged({ q: q || undefined, page, limit });
+  const { rows, total } = await listProductsPaged({
+    q: q || undefined,
+    page,
+    limit,
+    categoryId,
+  });
   const effectiveLimit = limit === "all" ? total : limit;
   const totalPages =
     limit === "all" ? 1 : Math.max(1, Math.ceil(total / effectiveLimit));
@@ -92,12 +113,19 @@ router.get("/", async (req, res) => {
   const statusMap = stockCount.active
     ? await getStockCountStatuses(rows.map((row) => row.stock_code))
     : {};
+  const categoryMap = await listCategoriesForStockCodes(rows.map((row) => row.stock_code));
 
   const products = rows.map((row) => {
     const product = rowToProduct(row);
-    if (!stockCount.active) return product;
+    const categories = categoryMap.get(row.stock_code) ?? [];
+    const withCategories = {
+      ...product,
+      categories,
+      categoryIds: categories.map((c) => c.id),
+    };
+    if (!stockCount.active) return withCategories;
     const countStatus: StockCountStatus = statusMap[row.stock_code] ?? "pending";
-    return { ...product, countStatus };
+    return { ...withCategories, countStatus };
   });
 
   res.json({
@@ -136,6 +164,8 @@ router.post("/", async (req, res) => {
     };
 
     await createProduct(product);
+    const categoryIds = parseCategoryIds(req.body);
+    if (categoryIds) await setProductCategories(product.stockCode, categoryIds);
     const saved = await getProductByStockCode(product.stockCode);
     logAuditFromContext(getAuditContext(req), {
       action: "product.create",
@@ -144,7 +174,12 @@ router.post("/", async (req, res) => {
       message: `Ürün eklendi: ${product.name}`,
       metadata: { stockCode: product.stockCode, name: product.name },
     });
-    res.status(201).json({ product: saved ? rowToProduct(saved) : product });
+    res.status(201).json({
+      product: {
+        ...(saved ? rowToProduct(saved) : product),
+        categoryIds: await getCategoryIdsForProduct(product.stockCode),
+      },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Oluşturulamadı.";
     res.status(400).json({ error: message });
@@ -157,7 +192,12 @@ router.get("/:stockCode", async (req, res) => {
     res.status(404).json({ error: "Ürün bulunamadı." });
     return;
   }
-  res.json({ product: rowToProduct(row) });
+  res.json({
+    product: {
+      ...rowToProduct(row),
+      categoryIds: await getCategoryIdsForProduct(row.stock_code),
+    },
+  });
 });
 
 router.patch("/:stockCode", async (req, res) => {
@@ -174,6 +214,9 @@ router.patch("/:stockCode", async (req, res) => {
     delete updates.stockCode;
     const product = await updateProduct(code, updates);
 
+    const categoryIds = parseCategoryIds(req.body);
+    if (categoryIds) await setProductCategories(code, categoryIds);
+
     if (await isStockCountActive()) {
       const changed = productDataChanged(before, product);
       await recordStockCountItem(code, changed ? "updated" : "unchanged");
@@ -186,7 +229,7 @@ router.patch("/:stockCode", async (req, res) => {
       message: `Ürün güncellendi: ${product.name}`,
       metadata: { stockCode: code, fields: Object.keys(updates) },
     });
-    res.json({ product });
+    res.json({ product: { ...product, categoryIds: await getCategoryIdsForProduct(code) } });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Güncellenemedi.";
     const status = message.includes("bulunamadı") ? 404 : 400;

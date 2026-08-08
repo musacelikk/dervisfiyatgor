@@ -5,10 +5,11 @@ import BrandLogo from "@/components/BrandLogo";
 import type {
   CatalogListResult,
   CatalogProduct,
+  ProductCategory,
   ProductImage,
 } from "@/types/product";
 import type { Order } from "@/types/order";
-import { productSalePrice, formatStorePrice } from "@/lib/store-format";
+import { formatStorePrice } from "@/lib/store-format";
 import {
   buildShareText,
   clearSalesCart,
@@ -20,9 +21,16 @@ import {
   type SalesCartItem,
 } from "@/lib/sales-cart";
 
-function formatPrice(product: CatalogProduct): string | null {
-  const price = productSalePrice(product);
-  return price == null ? null : formatStorePrice(price);
+/** Katalogda her iki satış fiyatı da ayrı ayrı gösterilir. */
+function priceRows(product: CatalogProduct): { label: string; value: string }[] {
+  const rows: { label: string; value: string }[] = [];
+  if (product.salePrice1 != null) {
+    rows.push({ label: "Fiyat 1", value: formatStorePrice(product.salePrice1) });
+  }
+  if (product.salePrice2 != null) {
+    rows.push({ label: "Fiyat 2", value: formatStorePrice(product.salePrice2) });
+  }
+  return rows;
 }
 
 type QtyPrompt = { product: CatalogProduct; value: string };
@@ -30,6 +38,8 @@ type QtyPrompt = { product: CatalogProduct; value: string };
 export default function SalesCatalogPage() {
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+  const [categoryId, setCategoryId] = useState<number | "">("");
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<CatalogProduct[]>([]);
   const [meta, setMeta] = useState<CatalogListResult | null>(null);
@@ -79,6 +89,7 @@ export default function SalesCatalogPage() {
       try {
         const params = new URLSearchParams({ page: String(page), limit: "24" });
         if (debouncedQ) params.set("q", debouncedQ);
+        if (categoryId) params.set("categoryId", String(categoryId));
         const res = await fetch(`/api/catalog?${params}`, { signal: ctrl.signal });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -88,6 +99,8 @@ export default function SalesCatalogPage() {
         }
         const result = body as CatalogListResult;
         setMeta(result);
+        // Kategori listesi her yanıtta gelir; boş filtre sonucunda kaybolmasın diye korunur
+        if (result.categories?.length) setCategories(result.categories);
         setItems((prev) => (append ? [...prev, ...result.products] : result.products));
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -101,7 +114,7 @@ export default function SalesCatalogPage() {
     })();
 
     return () => ctrl.abort();
-  }, [page, debouncedQ]);
+  }, [page, debouncedQ, categoryId]);
 
   /* ————— Ürün detayı ————— */
 
@@ -291,6 +304,39 @@ export default function SalesCatalogPage() {
             </button>
           )}
         </div>
+
+        {categories.length > 0 && (
+          <div className="sales-categories" role="group" aria-label="Kategori filtresi">
+            <button
+              type="button"
+              className={`sales-category ${categoryId === "" ? "is-active" : ""}`}
+              aria-pressed={categoryId === ""}
+              onClick={() => {
+                setCategoryId("");
+                setPage(1);
+              }}
+            >
+              Tüm Kategoriler
+            </button>
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                className={`sales-category ${categoryId === category.id ? "is-active" : ""}`}
+                aria-pressed={categoryId === category.id}
+                onClick={() => {
+                  setCategoryId(category.id);
+                  setPage(1);
+                }}
+              >
+                {category.name}
+                {typeof category.productCount === "number" && (
+                  <span className="sales-category-count">{category.productCount}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       <main className="sales-main sales-main-cart-space">
@@ -319,7 +365,7 @@ export default function SalesCatalogPage() {
           <div className="sales-grid">
             {items.map((p) => {
               const inCart = cart.find((i) => i.stockCode === p.stockCode);
-              const price = showPrices ? formatPrice(p) : null;
+              const prices = showPrices ? priceRows(p) : [];
               return (
                 <article
                   key={p.stockCode}
@@ -354,8 +400,17 @@ export default function SalesCatalogPage() {
                     <p className="sales-card-code">{p.stockCode}</p>
                     <h2 className="sales-card-name">{p.name}</h2>
                     {p.group && <p className="sales-card-group">{p.group}</p>}
+                    {prices.length > 0 && (
+                      <div className="sales-card-prices">
+                        {prices.map((row) => (
+                          <span key={row.label} className="sales-price-chip">
+                            <span className="sales-price-chip-label">{row.label}</span>
+                            <span className="sales-price-chip-value">{row.value}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="sales-card-footer">
-                      {price && <p className="sales-card-price">{price}</p>}
                       <button
                         type="button"
                         className="sales-card-add"
@@ -468,9 +523,21 @@ export default function SalesCatalogPage() {
                 {selected.unit && (
                   <span className="sales-modal-tag">Birim: {selected.unit}</span>
                 )}
+                {(selected.categories ?? []).map((category) => (
+                  <span key={category.id} className="sales-modal-tag">
+                    {category.name}
+                  </span>
+                ))}
               </div>
-              {showPrices && formatPrice(selected) && (
-                <p className="sales-modal-price">{formatPrice(selected)}</p>
+              {showPrices && priceRows(selected).length > 0 && (
+                <div className="sales-modal-prices">
+                  {priceRows(selected).map((row) => (
+                    <span key={row.label} className="sales-price-chip is-lg">
+                      <span className="sales-price-chip-label">{row.label}</span>
+                      <span className="sales-price-chip-value">{row.value}</span>
+                    </span>
+                  ))}
+                </div>
               )}
               <button
                 type="button"

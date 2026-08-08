@@ -232,6 +232,25 @@ async function migratePostgres(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_shift_denied_date
       ON shift_denied_attempts(work_date DESC);
+
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS shift TEXT;
+
+    CREATE TABLE IF NOT EXISTS product_categories (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_product_categories_name
+      ON product_categories (LOWER(name));
+
+    CREATE TABLE IF NOT EXISTS product_category_map (
+      stock_code TEXT NOT NULL REFERENCES products(stock_code) ON DELETE CASCADE,
+      category_id INTEGER NOT NULL REFERENCES product_categories(id) ON DELETE CASCADE,
+      PRIMARY KEY (stock_code, category_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_product_category_map_category
+      ON product_category_map(category_id);
   `);
 }
 

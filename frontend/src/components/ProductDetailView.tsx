@@ -8,6 +8,8 @@ import type { Product } from "@/types/product";
 interface ProductDetailViewProps {
   product: Product;
   showPurchasePrices?: boolean;
+  /** "Satış 2 görüntüleme" yetkisi yoksa 2. satış fiyatı hiç gösterilmez. */
+  showSalePrice2?: boolean;
   onAddToCart?: (quantity: number) => void;
 }
 
@@ -28,11 +30,13 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export default function ProductDetailView({
   product,
   showPurchasePrices = false,
+  showSalePrice2 = true,
   onAddToCart,
 }: ProductDetailViewProps) {
   const [qty, setQty] = useState(1);
-  const mainSale = productSalePrice(product);
+  const mainSale = showSalePrice2 ? productSalePrice(product) : product.salePrice1;
   const altSale =
+    showSalePrice2 &&
     product.salePrice1 != null &&
     product.salePrice2 != null &&
     product.salePrice1 !== product.salePrice2

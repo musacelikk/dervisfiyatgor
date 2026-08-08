@@ -8,9 +8,11 @@ export async function GET(request: Request) {
   const q = searchParams.get("q");
   const page = searchParams.get("page");
   const limit = searchParams.get("limit");
+  const categoryId = searchParams.get("categoryId");
   if (q) query.set("q", q);
   if (page) query.set("page", page);
   if (limit) query.set("limit", limit);
+  if (categoryId) query.set("categoryId", categoryId);
 
   try {
     const res = await fetch(`${API_URL}/api/products/catalog?${query}`, {

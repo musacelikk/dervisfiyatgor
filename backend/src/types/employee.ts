@@ -1,5 +1,6 @@
 import type { PermissionId } from "../lib/permissions";
 import { parsePermissions } from "../lib/permissions";
+import { normalizeShift, type EmployeeShift } from "../lib/attendance";
 
 export type EmployeeRow = {
   id: number;
@@ -10,6 +11,7 @@ export type EmployeeRow = {
   permissions: string;
   shift_code: string | null;
   honorific: string | null;
+  shift: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -24,6 +26,8 @@ export type EmployeePublic = {
   shiftCode: string | null;
   /** "Bey" | "Hanım" | null — karşılama metninde kullanılır */
   honorific: string | null;
+  /** "1" | "2" — geç giriş kontrolü bu vardiyanın sınır saatine göre yapılır */
+  shift: EmployeeShift;
   createdAt: string;
   updatedAt: string;
 };
@@ -37,6 +41,7 @@ export function rowToEmployee(row: EmployeeRow): EmployeePublic {
     permissions: parsePermissions(row.permissions),
     shiftCode: row.shift_code ?? null,
     honorific: row.honorific ?? null,
+    shift: normalizeShift(row.shift),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

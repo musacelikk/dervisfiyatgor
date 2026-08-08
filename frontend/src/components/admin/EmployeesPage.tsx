@@ -14,6 +14,7 @@ import {
   type PermissionId,
 } from "@/lib/permissions";
 import type { Employee } from "@/types/employee";
+import { SHIFT_LABELS, type EmployeeShift } from "@/types/shift";
 import AdminPageHeader from "./AdminPageHeader";
 import PermissionEditor from "./PermissionEditor";
 import AdminModal from "./AdminModal";
@@ -29,6 +30,7 @@ const emptyForm = {
   permissions: [...DEFAULT_EMPLOYEE_PERMISSIONS] as PermissionId[],
   shiftCode: "",
   honorific: "" as "" | "Bey" | "Hanım",
+  shift: "1" as EmployeeShift,
 };
 
 export default function EmployeesPage() {
@@ -68,6 +70,7 @@ export default function EmployeesPage() {
       permissions: employee.permissions,
       shiftCode: employee.shiftCode ?? "",
       honorific: employee.honorific ?? "",
+      shift: employee.shift ?? "1",
     });
     setFormMode({ type: "edit", employee });
   };
@@ -101,6 +104,7 @@ export default function EmployeesPage() {
           permissions: form.permissions,
           shiftCode: form.shiftCode || null,
           honorific: form.honorific || null,
+          shift: form.shift,
         });
       } else {
         const payload: Parameters<typeof updateEmployee>[1] = {
@@ -109,6 +113,7 @@ export default function EmployeesPage() {
           permissions: form.permissions,
           shiftCode: form.shiftCode || null,
           honorific: form.honorific || null,
+          shift: form.shift,
         };
         if (form.password) payload.password = form.password;
         await updateEmployee(formMode.employee.id, payload);
@@ -177,6 +182,7 @@ export default function EmployeesPage() {
                   <th>Ad soyad</th>
                   <th>Kullanıcı adı</th>
                   <th>Mesai ID</th>
+                  <th>Vardiya</th>
                   <th>Yetkiler</th>
                   <th>Durum</th>
                   <th className="text-right">İşlemler</th>
@@ -189,6 +195,9 @@ export default function EmployeesPage() {
                     <td className="font-mono text-xs">{emp.username}</td>
                     <td className="font-mono text-xs tracking-widest text-zinc-700">
                       {emp.shiftCode ?? "—"}
+                    </td>
+                    <td className="whitespace-nowrap text-xs text-zinc-600">
+                      {SHIFT_LABELS[emp.shift ?? "1"]}
                     </td>
                     <td className="max-w-[14rem] text-xs text-zinc-600">
                       {permissionSummary(emp.permissions)}
@@ -246,7 +255,7 @@ export default function EmployeesPage() {
                       )}
                     </p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      {permissionSummary(emp.permissions)}
+                      {SHIFT_LABELS[emp.shift ?? "1"]} · {permissionSummary(emp.permissions)}
                     </p>
                   </div>
                   <span
@@ -330,6 +339,27 @@ export default function EmployeesPage() {
                   required={formMode.type === "create"}
                   minLength={formMode.type === "create" ? 4 : undefined}
                 />
+              </div>
+
+              <div>
+                <label className="admin-label" htmlFor="employee-shift">
+                  Vardiya
+                </label>
+                <select
+                  id="employee-shift"
+                  className="admin-input"
+                  value={form.shift}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, shift: e.target.value as EmployeeShift }))
+                  }
+                >
+                  <option value="1">1. Vardiya</option>
+                  <option value="2">2. Vardiya</option>
+                </select>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Geç giriş kontrolü, Ayarlar&apos;da bu vardiya için belirlenen mesai
+                  başlangıç saatine göre yapılır.
+                </p>
               </div>
 
               <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">

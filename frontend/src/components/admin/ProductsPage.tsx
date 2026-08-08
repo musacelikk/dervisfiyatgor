@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createProduct,
   deleteProduct,
+  fetchCategories,
   fetchProducts,
   updateProduct,
 } from "@/lib/admin-api";
@@ -19,7 +20,12 @@ import {
   type PageSizeOption,
   type PermissionId,
 } from "@/lib/permissions";
-import type { Product, StockCountState, StockCountStatus } from "@/types/product";
+import type {
+  Product,
+  ProductCategory,
+  StockCountState,
+  StockCountStatus,
+} from "@/types/product";
 import AdminPagination from "./AdminPagination";
 import AdminModal from "./AdminModal";
 import AdminIconButton from "./AdminIconButton";
@@ -44,6 +50,7 @@ function loadSavedPageSize(): PageSizeOption {
 type FormMode = { type: "create" } | { type: "edit"; product: Product };
 
 const emptyProduct = (): Product => ({
+  categoryIds: [],
   stockCode: "",
   name: "",
   unit: null,
@@ -79,6 +86,7 @@ function stockCountClass(active: boolean, status?: StockCountStatus): string {
 
 function productToForm(p: Product) {
   return {
+    categoryIds: p.categoryIds ?? (p.categories ?? []).map((c) => c.id),
     stockCode: p.stockCode,
     name: p.name,
     unit: p.unit ?? "",
@@ -109,7 +117,12 @@ export default function ProductsPage({
   const canCreate = !isEmployee || hasPermission(permissions, "products.create");
   const canEdit = !isEmployee || hasPermission(permissions, "products.edit");
   const canDelete = !isEmployee || hasPermission(permissions, "products.delete");
+  const canSeeSale2 = !isEmployee || hasPermission(permissions, "prices.sale2");
+  // Kategori yönetimi admin panelinden yapılır; personel ekranında gösterilmez.
+  const canUseCategories = !isEmployee;
 
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<number | "">("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -189,7 +202,7 @@ export default function ProductsPage({
       };
       const data = isEmployee
         ? await managerFetchProducts(params)
-        : await fetchProducts(params);
+        : await fetchProducts({ ...params, categoryId: categoryFilter || undefined });
       if (seq !== loadSeqRef.current) return;
       setProducts(data.products);
       setTotal(data.total);
@@ -201,11 +214,18 @@ export default function ProductsPage({
     } finally {
       if (seq === loadSeqRef.current) setLoading(false);
     }
-  }, [debouncedSearch, page, pageSize, isEmployee]);
+  }, [debouncedSearch, page, pageSize, isEmployee, categoryFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!canUseCategories) return;
+    fetchCategories()
+      .then(setCategories)
+      .catch(() => setCategories([]));
+  }, [canUseCategories]);
 
   const openCreate = () => {
     setForm(productToForm(emptyProduct()));
@@ -222,7 +242,17 @@ export default function ProductsPage({
     setForm(productToForm(emptyProduct()));
   };
 
+  const toggleFormCategory = (categoryId: number) => {
+    setForm((f) => ({
+      ...f,
+      categoryIds: f.categoryIds.includes(categoryId)
+        ? f.categoryIds.filter((id) => id !== categoryId)
+        : [...f.categoryIds, categoryId],
+    }));
+  };
+
   const buildProduct = (): Product => ({
+    categoryIds: form.categoryIds,
     stockCode: form.stockCode.trim(),
     name: form.name.trim(),
     unit: form.unit.trim() || null,
@@ -344,6 +374,26 @@ export default function ProductsPage({
             </div>
           </div>
         </div>
+        {canUseCategories && categories.length > 0 && (
+          <label className="admin-category-filter">
+            <span>Kategori</span>
+            <select
+              className="admin-input"
+              value={categoryFilter}
+              onChange={(e) => {
+                setCategoryFilter(e.target.value ? Number(e.target.value) : "");
+                setPage(1);
+              }}
+            >
+              <option value="">Tüm kategoriler</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name} ({category.productCount ?? 0})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <div className="admin-toolbar-end">
           {createButton}
           <p className="admin-list-meta">
@@ -403,9 +453,10 @@ export default function ProductsPage({
                   <th>Ürün adı</th>
                   <th>Barkod</th>
                   <th className="text-right">Satış 1</th>
-                  <th className="text-right">Satış 2</th>
+                  {canSeeSale2 && <th className="text-right">Satış 2</th>}
                   <th className="text-right">Alış 1</th>
                   <th>Grup</th>
+                  {canUseCategories && <th>Kategoriler</th>}
                   <th className="text-right">Stok</th>
                   {(canEdit || canDelete) && <th className="text-right">İşlem</th>}
                 </tr>
@@ -424,11 +475,28 @@ export default function ProductsPage({
                     </td>
                     <td className="font-mono text-xs text-zinc-600">{p.barcode ?? "—"}</td>
                     <td className="text-right tabular-nums">{formatPrice(p.salePrice1)}</td>
-                    <td className="text-right tabular-nums">{formatPrice(p.salePrice2)}</td>
+                    {canSeeSale2 && (
+                      <td className="text-right tabular-nums">{formatPrice(p.salePrice2)}</td>
+                    )}
                     <td className="text-right tabular-nums text-zinc-500">
                       {formatPrice(p.purchasePrice1)}
                     </td>
                     <td className="text-sm text-zinc-600">{p.group ?? "—"}</td>
+                    {canUseCategories && (
+                      <td className="text-xs text-zinc-600">
+                        {(p.categories ?? []).length === 0 ? (
+                          <span className="text-zinc-400">—</span>
+                        ) : (
+                          <span className="admin-category-chips">
+                            {(p.categories ?? []).map((c) => (
+                              <span key={c.id} className="admin-category-chip">
+                                {c.name}
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                      </td>
+                    )}
                     <td className="text-right tabular-nums text-sm">
                       {p.remainingQty != null ? p.remainingQty.toLocaleString("tr-TR") : "—"}
                     </td>
@@ -482,10 +550,12 @@ export default function ProductsPage({
                     <dt className="text-zinc-400">Grup</dt>
                     <dd>{p.group ?? "—"}</dd>
                   </div>
-                  <div>
-                    <dt className="text-zinc-400">Satış 2</dt>
-                    <dd className="tabular-nums">{formatPrice(p.salePrice2)}</dd>
-                  </div>
+                  {canSeeSale2 && (
+                    <div>
+                      <dt className="text-zinc-400">Satış 2</dt>
+                      <dd className="tabular-nums">{formatPrice(p.salePrice2)}</dd>
+                    </div>
+                  )}
                   <div>
                     <dt className="text-zinc-400">Stok</dt>
                     <dd className="tabular-nums">
@@ -606,12 +676,14 @@ export default function ProductsPage({
                   onChange={(salePrice1) => setForm((f) => ({ ...f, salePrice1 }))}
                   placeholder="115 veya 115,50"
                 />
-                <NumericField
-                  label="Satış fiyatı 2"
-                  value={form.salePrice2}
-                  onChange={(salePrice2) => setForm((f) => ({ ...f, salePrice2 }))}
-                  placeholder="115 veya 115,50"
-                />
+                {canSeeSale2 && (
+                  <NumericField
+                    label="Satış fiyatı 2"
+                    value={form.salePrice2}
+                    onChange={(salePrice2) => setForm((f) => ({ ...f, salePrice2 }))}
+                    placeholder="115 veya 115,50"
+                  />
+                )}
                 <NumericField
                   label="Alış fiyatı 1"
                   value={form.purchasePrice1}
@@ -655,6 +727,39 @@ export default function ProductsPage({
                   />
                 </div>
               </div>
+
+              {canUseCategories && (
+                <div className="mt-5 border-t border-zinc-100 pt-4">
+                  <label className="admin-label">Kategoriler</label>
+                  {categories.length === 0 ? (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Henüz kategori yok. Stok → Kategoriler sekmesinden ekleyebilirsiniz.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Bir ürün birden fazla kategoride yer alabilir.
+                      </p>
+                      <div className="admin-category-picker mt-2">
+                        {categories.map((category) => {
+                          const active = form.categoryIds.includes(category.id);
+                          return (
+                            <button
+                              key={category.id}
+                              type="button"
+                              className={`admin-category-option ${active ? "is-active" : ""}`}
+                              aria-pressed={active}
+                              onClick={() => toggleFormCategory(category.id)}
+                            >
+                              {category.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               <div className="mt-5 border-t border-zinc-100 pt-4">
                 <ProductImageUploader

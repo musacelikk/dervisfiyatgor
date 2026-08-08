@@ -1,6 +1,7 @@
 import { isPostgres } from "../lib/database";
 import { normalizePermissionsInput, type PermissionId } from "../lib/permissions";
 import type { Honorific } from "../lib/shiftCode";
+import type { EmployeeShift } from "../lib/attendance";
 import type { EmployeePublic, EmployeeRow } from "../types/employee";
 import * as sqlite from "./employees-sqlite";
 import * as pg from "./employees-pg";
@@ -40,6 +41,7 @@ export async function createEmployee(input: {
   permissions?: PermissionId[];
   shiftCode?: string | null;
   honorific?: Honorific | null;
+  shift?: EmployeeShift | null;
 }): Promise<EmployeePublic> {
   if (isPostgres()) return pg.createEmployee(input);
   return sqlite.createEmployee(input);
@@ -55,6 +57,7 @@ export async function updateEmployee(
     permissions?: PermissionId[];
     shiftCode?: string | null;
     honorific?: Honorific | null;
+    shift?: EmployeeShift | null;
   }
 ): Promise<EmployeePublic> {
   if (isPostgres()) return pg.updateEmployee(id, input);

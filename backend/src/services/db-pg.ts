@@ -193,6 +193,7 @@ export async function listProductsPaged(options: {
   q?: string;
   page: number;
   limit: number | "all";
+  categoryId?: number;
 }): Promise<{ rows: ProductRow[]; total: number }> {
   const pool = getPool();
   const page = Math.max(1, options.page);
@@ -203,41 +204,47 @@ export async function listProductsPaged(options: {
       : 25;
   const q = options.q?.trim() ?? "";
 
-  if (!q) {
-    const total = await getProductCount();
-    const limit = unlimited ? total || 1 : limitNum;
-    const offset = unlimited ? 0 : (page - 1) * limit;
-    const { rows } = unlimited
-      ? await pool.query(`SELECT ${selectFields} FROM products ORDER BY LOWER(name)`)
-      : await pool.query(
-          `SELECT ${selectFields} FROM products ORDER BY LOWER(name) LIMIT $1 OFFSET $2`,
-          [limit, offset]
-        );
-    return { rows: rows as ProductRow[], total };
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (q) {
+    params.push(buildSearchLikePattern(q));
+    const p = `$${params.length}`;
+    conditions.push(`(
+      name_norm LIKE ${p} ESCAPE '\\'
+      OR stock_code_norm LIKE ${p} ESCAPE '\\'
+      OR barcode_norm LIKE ${p} ESCAPE '\\'
+      OR group_name_norm LIKE ${p} ESCAPE '\\'
+    )`);
+  }
+  if (options.categoryId) {
+    params.push(options.categoryId);
+    conditions.push(
+      `EXISTS (
+        SELECT 1 FROM product_category_map m
+        WHERE m.stock_code = products.stock_code AND m.category_id = $${params.length}
+      )`
+    );
   }
 
-  const pattern = buildSearchLikePattern(q);
-  const where = `
-    name_norm LIKE $1 ESCAPE '\\'
-    OR stock_code_norm LIKE $1 ESCAPE '\\'
-    OR barcode_norm LIKE $1 ESCAPE '\\'
-    OR group_name_norm LIKE $1 ESCAPE '\\'
-  `;
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const countResult = await pool.query(
-    `SELECT COUNT(*)::int AS count FROM products WHERE ${where}`,
-    [pattern]
+    `SELECT COUNT(*)::int AS count FROM products ${where}`,
+    params
   );
   const total = countResult.rows[0].count as number;
   const limit = unlimited ? total || 1 : limitNum;
   const offset = unlimited ? 0 : (page - 1) * limit;
+
   const { rows } = unlimited
     ? await pool.query(
-        `SELECT ${selectFields} FROM products WHERE ${where} ORDER BY LOWER(name)`,
-        [pattern]
+        `SELECT ${selectFields} FROM products ${where} ORDER BY LOWER(name)`,
+        params
       )
     : await pool.query(
-        `SELECT ${selectFields} FROM products WHERE ${where} ORDER BY LOWER(name) LIMIT $2 OFFSET $3`,
-        [pattern, limit, offset]
+        `SELECT ${selectFields} FROM products ${where} ORDER BY LOWER(name)
+         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, limit, offset]
       );
   return { rows: rows as ProductRow[], total };
 }

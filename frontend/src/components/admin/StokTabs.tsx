@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const STOCK_TABS = [
   { href: "/admin/stok/urunler", label: "Ürün listesi" },
+  { href: "/admin/stok/kategoriler", label: "Kategoriler" },
   { href: "/admin/stok/katalog", label: "Excel / Katalog" },
 ] as const;
 

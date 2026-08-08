@@ -7,10 +7,11 @@ import {
   type PermissionId,
 } from "../lib/permissions";
 import { isValidShiftCode, type Honorific } from "../lib/shiftCode";
+import { normalizeShift, type EmployeeShift } from "../lib/attendance";
 import { rowToEmployee, type EmployeePublic, type EmployeeRow } from "../types/employee";
 
 const selectPublic = `
-  SELECT id, name, username, active, permissions, shift_code, honorific, created_at, updated_at
+  SELECT id, name, username, active, permissions, shift_code, honorific, shift, created_at, updated_at
   FROM employees
 `;
 
@@ -84,12 +85,14 @@ export function createEmployee(input: {
   permissions?: PermissionId[];
   shiftCode?: string | null;
   honorific?: Honorific | null;
+  shift?: EmployeeShift | null;
 }): EmployeePublic {
   const name = input.name.trim();
   const username = input.username.trim().toLowerCase();
   const permissions = serializePermissions(input.permissions ?? DEFAULT_EMPLOYEE_PERMISSIONS);
   const shiftCode = validateShiftCode(input.shiftCode) ?? null;
   const honorific = input.honorific ?? null;
+  const shift = normalizeShift(input.shift);
 
   if (name.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
   if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
@@ -102,10 +105,10 @@ export function createEmployee(input: {
 
   const result = getSqliteDb()
     .prepare(
-      `INSERT INTO employees (name, username, password_hash, active, permissions, shift_code, honorific, updated_at)
-       VALUES (?, ?, ?, 1, ?, ?, ?, datetime('now'))`
+      `INSERT INTO employees (name, username, password_hash, active, permissions, shift_code, honorific, shift, updated_at)
+       VALUES (?, ?, ?, 1, ?, ?, ?, ?, datetime('now'))`
     )
-    .run(name, username, hashPassword(input.password), permissions, shiftCode, honorific);
+    .run(name, username, hashPassword(input.password), permissions, shiftCode, honorific, shift);
 
   const row = findEmployeeById(Number(result.lastInsertRowid));
   if (!row) throw new Error("Çalışan oluşturulamadı.");
@@ -122,6 +125,7 @@ export function updateEmployee(
     permissions?: PermissionId[];
     shiftCode?: string | null;
     honorific?: Honorific | null;
+    shift?: EmployeeShift | null;
   }
 ): EmployeePublic {
   const row = findEmployeeById(id);
@@ -136,6 +140,7 @@ export function updateEmployee(
   const shiftCode =
     input.shiftCode !== undefined ? validateShiftCode(input.shiftCode, id) : row.shift_code;
   const honorific = input.honorific !== undefined ? input.honorific : row.honorific;
+  const shift = input.shift !== undefined ? normalizeShift(input.shift) : normalizeShift(row.shift);
 
   if (name.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
   if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
@@ -157,10 +162,10 @@ export function updateEmployee(
     .prepare(
       `UPDATE employees
        SET name = ?, username = ?, password_hash = ?, active = ?, permissions = ?,
-           shift_code = ?, honorific = ?, updated_at = datetime('now')
+           shift_code = ?, honorific = ?, shift = ?, updated_at = datetime('now')
        WHERE id = ?`
     )
-    .run(name, username, passwordHash, active, permissions, shiftCode, honorific, id);
+    .run(name, username, passwordHash, active, permissions, shiftCode, honorific, shift, id);
 
   const updated = findEmployeeById(id);
   if (!updated) throw new Error("Çalışan güncellenemedi.");

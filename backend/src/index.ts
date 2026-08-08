@@ -19,6 +19,7 @@ import productsRouter from "./routes/products";
 import importRouter from "./routes/import";
 import exportRouter from "./routes/export";
 import adminProductsRouter from "./routes/adminProducts";
+import adminCategoriesRouter from "./routes/adminCategories";
 import employeesRouter from "./routes/employees";
 import employeeAuthRouter from "./routes/employeeAuth";
 import adminAuthRouter from "./routes/adminAuth";
@@ -33,6 +34,7 @@ import adminShiftsRouter from "./routes/adminShifts";
 import adminSettingsRouter from "./routes/adminSettings";
 import { initDatabase, isPostgres } from "./lib/database";
 import { scheduleProductNormBackfill } from "./lib/backfillProductNorms";
+import { runDataMigrations } from "./lib/dataMigrations";
 import { closeExpiredShiftEntries } from "./services/shifts";
 
 const app = express();
@@ -52,6 +54,7 @@ app.use("/api/products", productsRouter);
 app.use("/api/import", importRouter);
 app.use("/api/export", exportRouter);
 app.use("/api/admin/products", adminProductsRouter);
+app.use("/api/admin/categories", adminCategoriesRouter);
 app.use("/api/employees", employeesRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/admin/orders", adminOrdersRouter);
@@ -92,6 +95,7 @@ if (!isVercel) {
           `API http://localhost:${PORT} (ADMIN_SECRET: ${authOk ? "ok" : "eksik"}, DB: ${dbMode})`
         );
         scheduleProductNormBackfill();
+        void runDataMigrations();
         closeExpiredShiftEntries().catch((err) =>
           console.error("Mesai süpürme hatası:", err)
         );

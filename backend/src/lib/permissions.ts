@@ -1,5 +1,6 @@
 export const PERMISSION_IDS = [
   "scan",
+  "prices.sale2",
   "prices.purchase",
   "products.view",
   "products.create",
@@ -22,6 +23,11 @@ export const PERMISSION_GROUPS: {
     label: "Fiyat gör",
     items: [
       { id: "scan", label: "Barkod okutma / fiyat sorgulama" },
+      {
+        id: "prices.sale2",
+        label: "Satış 2 görüntüleme",
+        description: "Kapalıyken personel yalnızca 1. satış fiyatını görür.",
+      },
       { id: "prices.purchase", label: "Alış fiyatlarını görme" },
     ],
   },

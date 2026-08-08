@@ -3,6 +3,7 @@ import { listProductsPaged, searchProducts, type SearchBy } from "../services/db
 import { getAuditContext } from "../lib/auditContext";
 import { logAuditFromContext } from "../services/audit";
 import { listImagesForStockCodes } from "../services/productImages";
+import { listCategories, listCategoriesForStockCodes } from "../services/categories";
 import { getCatalogShowPrices } from "../services/settings";
 import type { ProductRow } from "../types/product";
 
@@ -47,11 +48,14 @@ function rowToCatalogJson(row: ProductRow, showPrices: boolean) {
   };
 }
 
-/** Satış kataloğu — tüm ürünler + resimler (herkese açık). */
+/** Satış kataloğu — tüm ürünler + resimler + kategoriler (herkese açık). */
 router.get("/catalog", async (req, res) => {
   const q = String(req.query.q ?? "").trim();
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = parseLimit(req.query.limit);
+  const categoryIdRaw = Number(req.query.categoryId);
+  const categoryId =
+    Number.isInteger(categoryIdRaw) && categoryIdRaw > 0 ? categoryIdRaw : undefined;
 
   try {
     const showPrices = await getCatalogShowPrices();
@@ -59,8 +63,14 @@ router.get("/catalog", async (req, res) => {
       q: q || undefined,
       page,
       limit,
+      categoryId,
     });
-    const imageMap = await listImagesForStockCodes(rows.map((r) => r.stock_code));
+    const stockCodes = rows.map((r) => r.stock_code);
+    const [imageMap, productCategoryMap, categories] = await Promise.all([
+      listImagesForStockCodes(stockCodes),
+      listCategoriesForStockCodes(stockCodes),
+      listCategories(),
+    ]);
     const products = rows.map((row) => {
       const images = imageMap.get(row.stock_code) ?? [];
       return {
@@ -71,6 +81,10 @@ router.get("/catalog", async (req, res) => {
           sortOrder: img.sortOrder,
         })),
         imageUrl: images[0]?.url ?? null,
+        categories: (productCategoryMap.get(row.stock_code) ?? []).map((c) => ({
+          id: c.id,
+          name: c.name,
+        })),
       };
     });
 
@@ -82,6 +96,12 @@ router.get("/catalog", async (req, res) => {
       totalPages: Math.max(1, Math.ceil(total / limit)),
       query: q,
       showPrices,
+      categoryId: categoryId ?? null,
+      categories: categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        productCount: c.productCount ?? 0,
+      })),
     });
   } catch (err) {
     res.status(500).json({
