@@ -1,7 +1,7 @@
 # Çoklu seçim ve toplu işlemler — tasarım
 
 Tarih: 2026-08-08
-Durum: Onaylandı (Faz A uygulanacak, Faz B ertelendi)
+Durum: Uygulandı (Faz A ve Faz B tamamlandı — 2026-08-11)
 
 ## Problem
 
@@ -166,15 +166,15 @@ rotalarla aynı: siparişlerde `orders.view`, ürün silmede `products.delete`.
   var olmayan id, 500 sınırı.
 - Rotalar: yetkisiz istek 401, geçersiz gövde 400, başarılı istekte tek audit kaydı.
 
-## Sonraki faz (B) — İzinli günler takvimi
-
-Karar alındı, bu spec'te uygulanmıyor:
+## Faz B — İzinli günler takvimi (uygulandı)
 
 `SettingsPage`'teki "İzinli günler (bayram / resmi tatil)" kartındaki tarih-input formu
-yeni `components/admin/ClosedDaysCalendar.tsx` ile değişir. Ay bazlı takvim, mevcut
+yeni `components/admin/ClosedDaysCalendar.tsx` ile değişti. Ay bazlı takvim, mevcut
 `attendance-cal` görsel diliyle uyumlu. Takvim üstünde **Tam gün / Yarım gün** kalem
-seçici; bir güne dokunmak o günü seçili kalemle **anında** izinli yapar, izinli güne
-tekrar dokunmak kaldırır. Backend'deki `addClosedDay` aynı tarihi zaten üzerine yazdığı
-için yeni endpoint gerekmez. Haftalık otomatik izin günleri soluk ve tıklanamaz gösterilir.
-Not girme, takvimin altında kalan mevcut liste üzerinden yapılır; bu liste Faz A'daki
-çoklu seçimi kullanarak toplu kaldırmayı da destekler.
+seçici; bir güne dokunmak o günü seçili kalemle **anında** izinli yapar, aynı tipte
+izinli bir güne tekrar dokunmak kaldırır, farklı tiple dokunmak tipi değiştirir (notu
+koruyarak). Backend'deki `addClosedDay` aynı tarihi zaten üzerine yazdığı için yeni
+endpoint gerekmedi. Haftalık otomatik izin günleri soluk ve tıklanamaz gösterilir.
+
+Not girme takvimin altındaki listeden yapılır: her satırda "Not ekle / Notu düzenle"
+satır içi düzenleyici açar, kaydetme `addClosedDay(date, note, type)` ile upsert olur.

@@ -28,6 +28,19 @@ export async function deleteOrder(id: number): Promise<void> {
   return sqlite.deleteOrder(id);
 }
 
+export async function deleteOrders(ids: number[]): Promise<number> {
+  if (isPostgres()) return pg.deleteOrders(ids);
+  return sqlite.deleteOrders(ids);
+}
+
+export async function updateOrdersStatus(
+  ids: number[],
+  status: OrderStatus
+): Promise<Order[]> {
+  if (isPostgres()) return pg.updateOrdersStatus(ids, status);
+  return sqlite.updateOrdersStatus(ids, status);
+}
+
 export async function getOrderCount(): Promise<number> {
   if (isPostgres()) return pg.getOrderCount();
   return sqlite.getOrderCount();

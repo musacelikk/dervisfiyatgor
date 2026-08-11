@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  bulkDeleteProducts,
   createProduct,
   deleteProduct,
   fetchCategories,
@@ -9,11 +10,13 @@ import {
   updateProduct,
 } from "@/lib/admin-api";
 import {
+  managerBulkDeleteProducts,
   managerCreateProduct,
   managerDeleteProduct,
   managerFetchProducts,
   managerUpdateProduct,
 } from "@/lib/manager-api";
+import { useBulkSelection } from "@/lib/use-bulk-selection";
 import {
   hasPermission,
   PAGE_SIZE_OPTIONS,
@@ -29,6 +32,8 @@ import type {
 import AdminPagination from "./AdminPagination";
 import AdminModal from "./AdminModal";
 import AdminIconButton from "./AdminIconButton";
+import AdminCheckbox from "./AdminCheckbox";
+import BulkActionBar from "./BulkActionBar";
 import { IconEdit, IconTrash } from "./AdminIcons";
 import ProductImageUploader from "./ProductImageUploader";
 import NumericField from "@/components/NumericField";
@@ -137,6 +142,7 @@ export default function ProductsPage({
   const [saving, setSaving] = useState(false);
   const [stockCount, setStockCount] = useState<StockCountState | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<Element | null>(null);
 
@@ -308,6 +314,39 @@ export default function ProductsPage({
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selection.count === 0) return;
+    const codes = selection.selectedKeys;
+    const names = products
+      .filter((p) => selection.isSelected(p.stockCode))
+      .slice(0, 3)
+      .map((p) => p.name)
+      .join(", ");
+    const more = codes.length > 3 ? ` ve ${codes.length - 3} tane daha` : "";
+    if (
+      !confirm(
+        `${codes.length} ürün kalıcı olarak silinecek (${names}${more}). Emin misiniz?`
+      )
+    ) {
+      return;
+    }
+
+    setBulkBusy(true);
+    setError(null);
+    try {
+      if (isEmployee) await managerBulkDeleteProducts(codes);
+      else await bulkDeleteProducts(codes);
+      selection.clear();
+      // Sayfadaki tüm kayıtlar silindiyse bir önceki sayfaya düş
+      if (codes.length === products.length && page > 1) setPage((p) => p - 1);
+      else await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ürünler silinemedi.");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const handleBarcodeScan = useCallback(async (code: string) => {
     const q = code.trim();
     if (!q) return;
@@ -315,6 +354,9 @@ export default function ProductsPage({
     setDebouncedSearch(q);
     setPage(1);
   }, []);
+
+  const visibleStockCodes = useMemo(() => products.map((p) => p.stockCode), [products]);
+  const selection = useBulkSelection<string>(visibleStockCodes);
 
   const createButton = canCreate ? (
     <button type="button" onClick={openCreate} className="admin-btn-primary">
@@ -395,6 +437,19 @@ export default function ProductsPage({
           </label>
         )}
         <div className="admin-toolbar-end">
+          {canDelete && (
+            <button
+              type="button"
+              className={`admin-select-toggle${
+                selection.selectionMode ? " is-active" : ""
+              } lg:hidden`}
+              aria-pressed={selection.selectionMode}
+              onClick={selection.toggleSelectionMode}
+              disabled={loading || bulkBusy}
+            >
+              {selection.selectionMode ? "Seçimi bitir" : "Seç"}
+            </button>
+          )}
           {createButton}
           <p className="admin-list-meta">
           {loading ? (
@@ -449,6 +504,17 @@ export default function ProductsPage({
             <table className="admin-table admin-table-products">
               <thead>
                 <tr>
+                  {canDelete && (
+                    <th className="admin-table-check">
+                      <AdminCheckbox
+                        checked={selection.allVisibleSelected}
+                        indeterminate={selection.someVisibleSelected}
+                        onChange={selection.toggleAll}
+                        label="Bu sayfadaki tüm ürünleri seç"
+                        disabled={bulkBusy}
+                      />
+                    </th>
+                  )}
                   <th>Stok kodu</th>
                   <th>Ürün adı</th>
                   <th>Barkod</th>
@@ -465,8 +531,20 @@ export default function ProductsPage({
                 {products.map((p) => (
                   <tr
                     key={p.stockCode}
-                    className={stockCountClass(countActive, p.countStatus) || undefined}
+                    className={`${stockCountClass(countActive, p.countStatus)}${
+                      selection.isSelected(p.stockCode) ? " is-selected" : ""
+                    }`.trim() || undefined}
                   >
+                    {canDelete && (
+                      <td className="admin-table-check">
+                        <AdminCheckbox
+                          checked={selection.isSelected(p.stockCode)}
+                          onChange={() => selection.toggle(p.stockCode)}
+                          label={`${p.name} seç`}
+                          disabled={bulkBusy}
+                        />
+                      </td>
+                    )}
                     <td className="font-mono text-xs font-medium text-zinc-800">
                       {p.stockCode}
                     </td>
@@ -530,9 +608,29 @@ export default function ProductsPage({
             {products.map((p) => (
               <article
                 key={p.stockCode}
-                className={`admin-product-card ${stockCountClass(countActive, p.countStatus)}`.trim()}
+                className={`admin-product-card ${stockCountClass(countActive, p.countStatus)}${
+                  selection.selectionMode && selection.isSelected(p.stockCode)
+                    ? " is-selected"
+                    : ""
+                }`.trim()}
+                onClick={
+                  selection.selectionMode
+                    ? () => selection.toggle(p.stockCode)
+                    : undefined
+                }
               >
                 <div className="flex items-start justify-between gap-2">
+                  {selection.selectionMode && (
+                    <span className="admin-product-card-check">
+                      <AdminCheckbox
+                        checked={selection.isSelected(p.stockCode)}
+                        onChange={() => selection.toggle(p.stockCode)}
+                        label={`${p.name} seç`}
+                        disabled={bulkBusy}
+                        stopPropagation
+                      />
+                    </span>
+                  )}
                   <div className="min-w-0">
                     <p className="font-semibold text-zinc-900">{p.name}</p>
                     <p className="mt-0.5 font-mono text-xs text-zinc-500">{p.stockCode}</p>
@@ -572,7 +670,7 @@ export default function ProductsPage({
                     ))}
                   </div>
                 )}
-                {(canEdit || canDelete) && (
+                {!selection.selectionMode && (canEdit || canDelete) && (
                   <div className="admin-action-icons mt-3 border-t border-zinc-100 pt-3">
                     {canEdit && (
                       <AdminIconButton label="Düzenle" onClick={() => openEdit(p)}>
@@ -610,6 +708,19 @@ export default function ProductsPage({
             }}
           />
         </>
+      )}
+
+      {canDelete && (
+        <BulkActionBar count={selection.count} onClear={selection.clear} busy={bulkBusy}>
+          <button
+            type="button"
+            className="bulk-btn bulk-btn-danger"
+            disabled={bulkBusy}
+            onClick={() => void handleBulkDelete()}
+          >
+            {bulkBusy ? "Siliniyor…" : "Seçilenleri sil"}
+          </button>
+        </BulkActionBar>
       )}
 
       {/* Scroll to top button */}

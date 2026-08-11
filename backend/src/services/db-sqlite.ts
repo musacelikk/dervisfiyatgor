@@ -791,6 +791,20 @@ export function deleteProduct(stockCode: string): void {
   if (result.changes === 0) throw new Error("Ürün bulunamadı.");
 }
 
+/** Toplu silme — tek transaction. Bulunamayan kodlar sessizce atlanır,
+ *  dönen değer gerçekten silinen ürün sayısıdır. */
+export function deleteProducts(stockCodes: string[]): number {
+  if (stockCodes.length === 0) return 0;
+  const database = getDb();
+  const stmt = database.prepare(`DELETE FROM products WHERE stock_code = ?`);
+  const run = database.transaction((codes: string[]) => {
+    let deleted = 0;
+    for (const code of codes) deleted += stmt.run(code.trim()).changes;
+    return deleted;
+  });
+  return run(stockCodes);
+}
+
 export function clearProducts(): void {
   getDb().exec("DELETE FROM products");
 }

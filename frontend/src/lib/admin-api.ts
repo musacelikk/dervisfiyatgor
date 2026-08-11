@@ -215,6 +215,22 @@ export async function deleteProduct(stockCode: string): Promise<void> {
   }
 }
 
+/** Toplu silme — dönen değer gerçekten silinen ürün sayısıdır. */
+export async function bulkDeleteProducts(stockCodes: string[]): Promise<number> {
+  const res = await fetch("/api/admin/products/bulk-delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stockCodes }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      typeof body.error === "string" ? body.error : "Ürünler silinemedi."
+    );
+  }
+  return body.deleted ?? 0;
+}
+
 /* ————— Katalog kategorileri ————— */
 
 async function categoriesFetch(

@@ -2,10 +2,38 @@ import { Router } from "express";
 import { requireAdminOrEmployee } from "../middleware/adminAuth";
 import { getAuditContext } from "../lib/auditContext";
 import { logAuditFromContext } from "../services/audit";
-import { deleteOrder, getOrderById, listOrders, updateOrderStatus } from "../services/orders";
+import {
+  deleteOrder,
+  deleteOrders,
+  getOrderById,
+  listOrders,
+  updateOrderStatus,
+  updateOrdersStatus,
+} from "../services/orders";
 import type { OrderStatus } from "../types/order";
 
 const router = Router();
+
+/** Tek istekte işlenebilecek en fazla kayıt — aralık patlamasını önler. */
+const MAX_BULK_IDS = 500;
+
+const ORDER_STATUSES = ["pending", "preparing", "completed", "cancelled"];
+
+/** Gövdeden benzersiz, pozitif sipariş id listesi çıkarır. */
+function parseBulkIds(value: unknown): number[] | { error: string } {
+  if (!Array.isArray(value)) return { error: "ids bir dizi olmalı." };
+  if (value.length === 0) return { error: "En az bir sipariş seçin." };
+  if (value.length > MAX_BULK_IDS) {
+    return { error: `Tek seferde en fazla ${MAX_BULK_IDS} sipariş işlenebilir.` };
+  }
+  const ids: number[] = [];
+  for (const raw of value) {
+    const id = Number(raw);
+    if (!Number.isInteger(id) || id < 1) return { error: "Geçersiz sipariş id." };
+    if (!ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
 
 router.use(requireAdminOrEmployee);
 
@@ -20,6 +48,69 @@ router.get("/", async (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Siparişler yüklenemedi.";
     res.status(500).json({ error: message });
+  }
+});
+
+/** Toplu silme — POST olduğu için "/:id" rotalarıyla çakışmaz. */
+router.post("/bulk-delete", async (req, res) => {
+  const parsed = parseBulkIds(req.body?.ids);
+  if (!Array.isArray(parsed)) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+
+  try {
+    // Audit mesajı için silinmeden önce sipariş kodları toplanır
+    const existing = await Promise.all(parsed.map((id) => getOrderById(id)));
+    const codes = existing
+      .filter((o): o is NonNullable<typeof o> => Boolean(o))
+      .map((o) => o.orderCode || `#${o.id}`);
+
+    const deleted = await deleteOrders(parsed);
+    logAuditFromContext(getAuditContext(req), {
+      action: "order.bulk_delete",
+      resourceType: "order",
+      resourceId: parsed.join(","),
+      message: `${deleted} sipariş toplu silindi${codes.length ? `: ${codes.slice(0, 10).join(", ")}${codes.length > 10 ? "…" : ""}` : ""}`,
+      metadata: { ids: parsed, deleted, orderCodes: codes },
+    });
+    res.json({ deleted });
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : "Siparişler silinemedi.",
+    });
+  }
+});
+
+/** Toplu durum güncelleme. */
+router.post("/bulk-status", async (req, res) => {
+  const parsed = parseBulkIds(req.body?.ids);
+  if (!Array.isArray(parsed)) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const status = req.body?.status;
+  if (typeof status !== "string" || !ORDER_STATUSES.includes(status)) {
+    res.status(400).json({
+      error: "status: pending, preparing, completed veya cancelled olmalı.",
+    });
+    return;
+  }
+
+  try {
+    const orders = await updateOrdersStatus(parsed, status as OrderStatus);
+    logAuditFromContext(getAuditContext(req), {
+      action: "order.bulk_status_update",
+      resourceType: "order",
+      resourceId: parsed.join(","),
+      message: `${orders.length} siparişin durumu toplu güncellendi: ${status}`,
+      metadata: { ids: parsed, status, updated: orders.length },
+    });
+    res.json({ orders });
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : "Durumlar güncellenemedi.",
+    });
   }
 });
 

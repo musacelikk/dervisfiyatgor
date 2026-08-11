@@ -4,8 +4,10 @@ import { saveBlobFile } from "@/lib/download-blob";
 import {
   buildOrderExportData,
   orderExportFileBaseName,
+  type OrderExportData,
   type OrderExportInput,
 } from "@/lib/order-export";
+import type { Order } from "@/types/order";
 
 const FONT_REGULAR = "Roboto-Regular.ttf";
 const FONT_BOLD = "Roboto-Bold.ttf";
@@ -73,12 +75,10 @@ function buildColumnLayout(marginL: number, colWidths: number[], colGap: number)
   return colX;
 }
 
-export async function downloadOrderPDF(data: PDFOrderData): Promise<void> {
-  const { jsPDF } = await import("jspdf");
-
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  await registerRobotoFont(doc);
-
+/** Tek siparişi hazır bir jsPDF dokümanının geçerli sayfasına çizer.
+ *  Hem tekil hem çoklu dışa aktarım bunu kullanır. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function renderOrderPage(doc: any, exportData: OrderExportData): Promise<void> {
   const pageW = 210;
   const marginL = 14;
   const marginR = 14;
@@ -89,14 +89,7 @@ export async function downloadOrderPDF(data: PDFOrderData): Promise<void> {
   const colX = buildColumnLayout(marginL, colWidths, colGap);
   const rowH = 7.5;
 
-  const {
-    customerName,
-    phone,
-    orderCode,
-    orderDate,
-    rows,
-    grandTotal,
-  } = buildOrderExportData(data);
+  const { customerName, phone, orderCode, orderDate, rows, grandTotal } = exportData;
 
   let y = marginL;
 
@@ -221,8 +214,37 @@ export async function downloadOrderPDF(data: PDFOrderData): Promise<void> {
   doc.setFontSize(11);
   doc.setTextColor(180, 20, 20);
   doc.text(formatPrice(grandTotal), pageW - marginR, y + 1, { align: "right" });
+}
 
-  const fileName = `${orderExportFileBaseName(orderCode)}.pdf`;
+export async function downloadOrderPDF(data: PDFOrderData): Promise<void> {
+  const { jsPDF } = await import("jspdf");
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  await registerRobotoFont(doc);
+
+  const exportData = buildOrderExportData(data);
+  await renderOrderPage(doc, exportData);
+
+  const fileName = `${orderExportFileBaseName(exportData.orderCode)}.pdf`;
+  saveBlobFile(doc.output("blob"), fileName, "application/pdf");
+}
+
+/** Birden fazla siparişi tek PDF'te, her sipariş bir sayfa olacak şekilde indirir. */
+export async function downloadOrdersPDF(orders: Order[]): Promise<void> {
+  if (orders.length === 0) return;
+  if (orders.length === 1) return downloadOrderPDF({ order: orders[0] });
+
+  const { jsPDF } = await import("jspdf");
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  await registerRobotoFont(doc);
+
+  for (let i = 0; i < orders.length; i++) {
+    if (i > 0) doc.addPage();
+    await renderOrderPage(doc, buildOrderExportData({ order: orders[i] }));
+  }
+
+  const fileName = `dervis-siparisler-${orders.length}.pdf`;
   saveBlobFile(doc.output("blob"), fileName, "application/pdf");
 }
 

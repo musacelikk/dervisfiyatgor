@@ -14,6 +14,7 @@ import {
   removeClosedDay,
   saveAdminSettings,
 } from "@/lib/attendance-api";
+import ClosedDaysCalendar from "./ClosedDaysCalendar";
 import type { StockCountState } from "@/types/product";
 import {
   WEEKDAY_LABELS,
@@ -51,11 +52,12 @@ export default function SettingsPage() {
 
   const [closedDays, setClosedDays] = useState<ClosedDay[]>([]);
   const [closedDaysLoading, setClosedDaysLoading] = useState(true);
-  const [closedDayDate, setClosedDayDate] = useState("");
-  const [closedDayNote, setClosedDayNote] = useState("");
-  const [closedDayType, setClosedDayType] = useState<ClosedDayType>("full");
-  const [closedDaySaving, setClosedDaySaving] = useState(false);
+  const [closedDayBusyDate, setClosedDayBusyDate] = useState<string | null>(null);
   const [closedDayError, setClosedDayError] = useState<string | null>(null);
+  /** Not düzenlenen gün — takvimden değil, alttaki listeden açılır. */
+  const [noteFor, setNoteFor] = useState<ClosedDay | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
 
   const [attendance, setAttendance] = useState<AttendanceSettings | null>(null);
   const [attendanceSaving, setAttendanceSaving] = useState(false);
@@ -92,30 +94,60 @@ export default function SettingsPage() {
     }
   }, []);
 
-  const handleAddClosedDay = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!closedDayDate) return;
-    setClosedDaySaving(true);
+  /** Takvimde bir güne dokunma: izinliyse kaldırır, değilse seçili kalemle ekler.
+   *  Aynı gün farklı tiple işaretlenirse backend'deki addClosedDay üzerine yazar. */
+  const handleToggleClosedDay = async (date: string, type: ClosedDayType) => {
+    const existing = closedDays.find((d) => d.date === date);
+    setClosedDayBusyDate(date);
     setClosedDayError(null);
     try {
-      setClosedDays(await addClosedDay(closedDayDate, closedDayNote || null, closedDayType));
-      setClosedDayDate("");
-      setClosedDayNote("");
-      setClosedDayType("full");
+      if (existing && existing.type === type) {
+        setClosedDays(await removeClosedDay(date));
+      } else {
+        // Tip değişiyorsa notu koru
+        setClosedDays(await addClosedDay(date, existing?.note ?? null, type));
+      }
     } catch (err) {
-      setClosedDayError(err instanceof Error ? err.message : "İzinli gün eklenemedi.");
+      setClosedDayError(
+        err instanceof Error ? err.message : "İzinli gün güncellenemedi."
+      );
     } finally {
-      setClosedDaySaving(false);
+      setClosedDayBusyDate(null);
     }
   };
 
   const handleRemoveClosedDay = async (day: ClosedDay) => {
     if (!confirm(`${formatClosedDayDate(day.date)} izinli günü kaldırılsın mı?`)) return;
     setClosedDayError(null);
+    setClosedDayBusyDate(day.date);
     try {
       setClosedDays(await removeClosedDay(day.date));
     } catch (err) {
       setClosedDayError(err instanceof Error ? err.message : "İzinli gün kaldırılamadı.");
+    } finally {
+      setClosedDayBusyDate(null);
+    }
+  };
+
+  const openNoteEditor = (day: ClosedDay) => {
+    setNoteFor(day);
+    setNoteDraft(day.note ?? "");
+  };
+
+  const handleSaveNote = async () => {
+    if (!noteFor) return;
+    setNoteSaving(true);
+    setClosedDayError(null);
+    try {
+      setClosedDays(
+        await addClosedDay(noteFor.date, noteDraft.trim() || null, noteFor.type)
+      );
+      setNoteFor(null);
+      setNoteDraft("");
+    } catch (err) {
+      setClosedDayError(err instanceof Error ? err.message : "Not kaydedilemedi.");
+    } finally {
+      setNoteSaving(false);
     }
   };
 
@@ -355,78 +387,95 @@ export default function SettingsPage() {
         <div className="settings-section-head">
           <h2 className="admin-card-title">İzinli günler (bayram / resmi tatil)</h2>
           <p className="settings-section-desc">
-            Tek seferlik izinli günleri buradan ekleyin. Tam gün izinlerde giriş yapmayan
-            personel Yoklama&apos;da &quot;Gelmedi&quot; değil, &quot;İzinli&quot; görünür.
-            Yarım gün izinlerde çalışma beklenir; gün takvimde yarım gün olarak işaretlenir.
-            Haftalık düzenli izinler için üstteki &quot;Otomatik izin günleri&quot; ayarını
-            kullanın.
+            Üstten <b>Tam gün</b> veya <b>Yarım gün</b> seçip takvimde bir güne dokunun —
+            o gün anında izinli olur. İzinli bir güne tekrar dokunmak izni kaldırır.
+            Tam gün izinlerde giriş yapmayan personel Yoklama&apos;da &quot;Gelmedi&quot;
+            değil, &quot;İzinli&quot; görünür; yarım gün izinlerde çalışma beklenir.
+            Haftalık düzenli izinler üstteki &quot;Otomatik izin günleri&quot; ayarından
+            gelir ve takvimde soluk görünür.
           </p>
         </div>
 
-        <form onSubmit={handleAddClosedDay} className="closed-days-form">
-          <input
-            type="date"
-            className="admin-input"
-            value={closedDayDate}
-            onChange={(e) => setClosedDayDate(e.target.value)}
-            required
-            aria-label="Tarih"
+        {closedDaysLoading ? (
+          <p className="admin-muted mt-3 text-sm">Yükleniyor…</p>
+        ) : (
+          <ClosedDaysCalendar
+            closedDays={closedDays}
+            weeklyOffDays={attendance?.weeklyOffDays ?? []}
+            onToggleDay={handleToggleClosedDay}
+            busyDate={closedDayBusyDate}
           />
-          <select
-            className="admin-input"
-            value={closedDayType}
-            onChange={(e) => setClosedDayType(e.target.value as ClosedDayType)}
-            aria-label="İzin tipi"
-          >
-            <option value="full">Tam gün</option>
-            <option value="half">Yarım gün</option>
-          </select>
-          <input
-            type="text"
-            className="admin-input"
-            placeholder="Not (isteğe bağlı, örn. Bayram)"
-            value={closedDayNote}
-            onChange={(e) => setClosedDayNote(e.target.value)}
-            maxLength={200}
-          />
-          <button
-            type="submit"
-            className="admin-btn-primary"
-            disabled={closedDaySaving || !closedDayDate}
-          >
-            {closedDaySaving ? "Ekleniyor…" : "Ekle"}
-          </button>
-        </form>
+        )}
 
         {closedDayError && (
           <p className="mt-2 text-sm text-red-600">{closedDayError}</p>
         )}
 
-        {closedDaysLoading ? (
-          <p className="admin-muted mt-3 text-sm">Yükleniyor…</p>
-        ) : closedDays.length === 0 ? (
-          <p className="admin-muted mt-3 text-sm">Henüz izinli gün eklenmedi.</p>
-        ) : (
-          <ul className="closed-days-list">
-            {closedDays.map((day) => (
-              <li key={day.date} className="closed-days-row">
-                <span className="closed-days-date">{formatClosedDayDate(day.date)}</span>
-                <span
-                  className={`closed-days-type ${day.type === "half" ? "is-half" : ""}`}
-                >
-                  {day.type === "half" ? "Yarım gün" : "Tam gün"}
-                </span>
-                {day.note && <span className="closed-days-note">{day.note}</span>}
-                <button
-                  type="button"
-                  className="admin-btn-ghost text-xs ml-auto"
-                  onClick={() => void handleRemoveClosedDay(day)}
-                >
-                  Kaldır
-                </button>
-              </li>
-            ))}
-          </ul>
+        {!closedDaysLoading && closedDays.length > 0 && (
+          <>
+            <p className="closed-days-list-title">Eklenen izinli günler</p>
+            <ul className="closed-days-list">
+              {closedDays.map((day) => (
+                <li key={day.date} className="closed-days-row">
+                  <span className="closed-days-date">{formatClosedDayDate(day.date)}</span>
+                  <span
+                    className={`closed-days-type ${day.type === "half" ? "is-half" : ""}`}
+                  >
+                    {day.type === "half" ? "Yarım gün" : "Tam gün"}
+                  </span>
+                  {noteFor?.date === day.date ? (
+                    <span className="closed-days-note-edit">
+                      <input
+                        type="text"
+                        className="admin-input"
+                        value={noteDraft}
+                        onChange={(e) => setNoteDraft(e.target.value)}
+                        placeholder="Örn. Kurban Bayramı"
+                        maxLength={200}
+                        autoFocus
+                        disabled={noteSaving}
+                      />
+                      <button
+                        type="button"
+                        className="admin-btn-primary text-xs"
+                        onClick={() => void handleSaveNote()}
+                        disabled={noteSaving}
+                      >
+                        {noteSaving ? "…" : "Kaydet"}
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-btn-ghost text-xs"
+                        onClick={() => setNoteFor(null)}
+                        disabled={noteSaving}
+                      >
+                        Vazgeç
+                      </button>
+                    </span>
+                  ) : (
+                    <>
+                      {day.note && <span className="closed-days-note">{day.note}</span>}
+                      <button
+                        type="button"
+                        className="admin-btn-ghost text-xs ml-auto"
+                        onClick={() => openNoteEditor(day)}
+                      >
+                        {day.note ? "Notu düzenle" : "Not ekle"}
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-btn-ghost text-xs"
+                        onClick={() => void handleRemoveClosedDay(day)}
+                        disabled={closedDayBusyDate === day.date}
+                      >
+                        Kaldır
+                      </button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
 

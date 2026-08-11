@@ -337,6 +337,16 @@ export async function deleteProduct(stockCode: string): Promise<void> {
   if (result.rowCount === 0) throw new Error("Ürün bulunamadı.");
 }
 
+/** Toplu silme — tek sorgu, atomik. Bulunamayan kodlar sessizce atlanır. */
+export async function deleteProducts(stockCodes: string[]): Promise<number> {
+  if (stockCodes.length === 0) return 0;
+  const result = await getPool().query(
+    `DELETE FROM products WHERE stock_code = ANY($1::text[])`,
+    [stockCodes.map((c) => c.trim())]
+  );
+  return result.rowCount ?? 0;
+}
+
 export async function clearProducts(): Promise<void> {
   await getPool().query(`DELETE FROM products`);
 }

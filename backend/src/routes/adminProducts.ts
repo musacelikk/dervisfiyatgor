@@ -6,6 +6,7 @@ import { logAuditFromContext } from "../services/audit";
 import {
   createProduct,
   deleteProduct,
+  deleteProducts,
   getProductByStockCode,
   listProductsPaged,
   updateProduct,
@@ -26,6 +27,9 @@ import type { Product } from "../types/product";
 import type { StockCountStatus } from "../types/stockCount";
 
 const router = Router();
+
+/** Tek istekte silinebilecek en fazla ürün — aralık patlamasını önler. */
+const MAX_BULK_CODES = 500;
 
 router.use(requireAdminOrEmployee);
 
@@ -234,6 +238,56 @@ router.patch("/:stockCode", async (req, res) => {
     const message = err instanceof Error ? err.message : "Güncellenemedi.";
     const status = message.includes("bulunamadı") ? 404 : 400;
     res.status(status).json({ error: message });
+  }
+});
+
+/** Toplu silme — tekil rota gibi ürün resimlerini de temizler.
+ *  POST olduğu için "/:stockCode" rotalarıyla çakışmaz. */
+router.post("/bulk-delete", async (req, res) => {
+  const raw = req.body?.stockCodes;
+  if (!Array.isArray(raw)) {
+    res.status(400).json({ error: "stockCodes bir dizi olmalı." });
+    return;
+  }
+  if (raw.length === 0) {
+    res.status(400).json({ error: "En az bir ürün seçin." });
+    return;
+  }
+  if (raw.length > MAX_BULK_CODES) {
+    res.status(400).json({
+      error: `Tek seferde en fazla ${MAX_BULK_CODES} ürün silinebilir.`,
+    });
+    return;
+  }
+
+  const codes: string[] = [];
+  for (const value of raw) {
+    if (typeof value !== "string" || !value.trim()) {
+      res.status(400).json({ error: "Geçersiz stok kodu." });
+      return;
+    }
+    const code = value.trim();
+    if (!codes.includes(code)) codes.push(code);
+  }
+
+  try {
+    const { deleteImagesForStockCode } = await import("../services/productImages");
+    for (const code of codes) {
+      await deleteImagesForStockCode(code);
+    }
+    const deleted = await deleteProducts(codes);
+    logAuditFromContext(getAuditContext(req), {
+      action: "product.bulk_delete",
+      resourceType: "product",
+      resourceId: codes.slice(0, 20).join(","),
+      message: `${deleted} ürün toplu silindi`,
+      metadata: { stockCodes: codes, deleted },
+    });
+    res.json({ deleted });
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : "Ürünler silinemedi.",
+    });
   }
 });
 

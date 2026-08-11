@@ -77,6 +77,49 @@ export async function deleteManagerOrder(id: number): Promise<void> {
   }
 }
 
+/* ————————————————— Toplu işlemler ————————————————— */
+
+async function bulkFetch<T>(url: string, body: unknown, fallback: string): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof data.error === "string" ? data.error : fallback);
+  }
+  return data as T;
+}
+
+/** Dönen değer gerçekten silinen kayıt sayısıdır (bulunamayanlar atlanır). */
+export async function bulkDeleteOrders(
+  ids: number[],
+  mode: "admin" | "manager" = "admin"
+): Promise<number> {
+  const base = mode === "manager" ? "/api/yonetici" : "/api/admin";
+  const body = await bulkFetch<{ deleted: number }>(
+    `${base}/orders/bulk-delete`,
+    { ids },
+    "Siparişler silinemedi."
+  );
+  return body.deleted ?? 0;
+}
+
+export async function bulkUpdateOrderStatus(
+  ids: number[],
+  status: OrderStatus,
+  mode: "admin" | "manager" = "admin"
+): Promise<Order[]> {
+  const base = mode === "manager" ? "/api/yonetici" : "/api/admin";
+  const body = await bulkFetch<{ orders: Order[] }>(
+    `${base}/orders/bulk-status`,
+    { ids, status },
+    "Durumlar güncellenemedi."
+  );
+  return body.orders ?? [];
+}
+
 export function formatOrderMoney(value: number | null | undefined): string {
   if (value == null) return "—";
   return new Intl.NumberFormat("tr-TR", {

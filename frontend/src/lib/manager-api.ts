@@ -143,3 +143,21 @@ export async function managerDeleteProduct(stockCode: string): Promise<void> {
     throw new Error(typeof body.error === "string" ? body.error : "Silinemedi.");
   }
 }
+
+/** Toplu silme — dönen değer gerçekten silinen ürün sayısıdır. */
+export async function managerBulkDeleteProducts(
+  stockCodes: string[]
+): Promise<number> {
+  const res = await fetch("/api/yonetici/products/bulk-delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stockCodes }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      typeof body.error === "string" ? body.error : "Ürünler silinemedi."
+    );
+  }
+  return body.deleted ?? 0;
+}

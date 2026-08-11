@@ -184,6 +184,48 @@ export function deleteOrder(id: number): void {
   if (result.changes === 0) throw new Error("Sipariş bulunamadı.");
 }
 
+/** Toplu silme — tek transaction. Bulunamayan id'ler sessizce atlanır,
+ *  dönen değer gerçekten silinen kayıt sayısıdır. */
+export function deleteOrders(ids: number[]): number {
+  ensureOrdersSchema();
+  if (ids.length === 0) return 0;
+  const database = db();
+  const stmt = database.prepare(`DELETE FROM orders WHERE id = ?`);
+  const run = database.transaction((list: number[]) => {
+    let deleted = 0;
+    for (const id of list) deleted += stmt.run(id).changes;
+    return deleted;
+  });
+  return run(ids);
+}
+
+/** Toplu durum güncelleme — tek transaction, güncellenen siparişleri döner. */
+export function updateOrdersStatus(ids: number[], status: OrderStatus): Order[] {
+  ensureOrdersSchema();
+  if (!["pending", "preparing", "completed", "cancelled"].includes(status)) {
+    throw new Error("Geçersiz sipariş durumu.");
+  }
+  if (ids.length === 0) return [];
+  const database = db();
+  const stmt = database.prepare(
+    `UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?`
+  );
+  const run = database.transaction((list: number[]) => {
+    const updated: number[] = [];
+    for (const id of list) {
+      if (stmt.run(status, id).changes > 0) updated.push(id);
+    }
+    return updated;
+  });
+  const updatedIds = run(ids);
+  const orders: Order[] = [];
+  for (const id of updatedIds) {
+    const order = getOrderById(id);
+    if (order) orders.push(order);
+  }
+  return orders;
+}
+
 export function getOrderCount(): number {
   ensureOrdersSchema();
   const row = db().prepare(`SELECT COUNT(*) as count FROM orders`).get() as { count: number };

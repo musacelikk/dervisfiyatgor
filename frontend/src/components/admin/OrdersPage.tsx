@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminModal from "./AdminModal";
+import AdminCheckbox from "./AdminCheckbox";
+import BulkActionBar from "./BulkActionBar";
+import { useBulkSelection } from "@/lib/use-bulk-selection";
 import {
+  bulkDeleteOrders,
+  bulkUpdateOrderStatus,
   deleteManagerOrder,
   deleteOrder,
   fetchManagerOrders,
@@ -12,8 +17,8 @@ import {
   updateManagerOrderStatus,
   updateOrderStatus,
 } from "@/lib/orders-api";
-import { downloadOrderExcel } from "@/lib/excel-order";
-import { downloadOrderPDF } from "@/lib/pdf-order";
+import { downloadOrderExcel, downloadOrdersExcel } from "@/lib/excel-order";
+import { downloadOrderPDF, downloadOrdersPDF } from "@/lib/pdf-order";
 import {
   ORDER_STATUS_CLASSES,
   ORDER_STATUS_LABELS,
@@ -97,6 +102,15 @@ export default function OrdersPage({ mode = "admin", channel }: OrdersPageProps)
     if (statusFilter === "all") return orders;
     return orders.filter((o) => o.status === statusFilter);
   }, [orders, statusFilter]);
+
+  const visibleIds = useMemo(() => filteredOrders.map((o) => o.id), [filteredOrders]);
+  const selection = useBulkSelection<number>(visibleIds);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const selectedOrders = useMemo(
+    () => filteredOrders.filter((o) => selection.isSelected(o.id)),
+    [filteredOrders, selection]
+  );
 
   const updateOrder = async (orderId: number, status: OrderStatus) => {
     return mode === "manager"
@@ -190,25 +204,132 @@ export default function OrdersPage({ mode = "admin", channel }: OrdersPageProps)
     await handleQuickStatus(order, "completed");
   };
 
+  /* ————————————————— Toplu işlemler ————————————————— */
+
+  const bulkMode = mode === "manager" ? "manager" : "admin";
+
+  /** Onay metninde ilk birkaç sipariş kodunu göstererek yanlış seçimi yakalatır. */
+  const selectionSummary = () => {
+    const codes = selectedOrders
+      .slice(0, 3)
+      .map((o) => o.orderCode ?? `#${o.id}`)
+      .join(", ");
+    const more = selectedOrders.length > 3 ? ` ve ${selectedOrders.length - 3} tane daha` : "";
+    return `${codes}${more}`;
+  };
+
+  const handleBulkDelete = async () => {
+    if (selection.count === 0) return;
+    if (
+      !confirm(
+        `${selection.count} sipariş kalıcı olarak silinecek (${selectionSummary()}). Emin misiniz?`
+      )
+    ) {
+      return;
+    }
+
+    setBulkBusy(true);
+    setError(null);
+    try {
+      const ids = selection.selectedKeys;
+      await bulkDeleteOrders(ids, bulkMode);
+      const removed = new Set(ids);
+      setOrders((prev) => prev.filter((o) => !removed.has(o.id)));
+      if (selected && removed.has(selected.id)) setSelected(null);
+      selection.clear();
+    } catch (err) {
+      // Seçim korunur ki kullanıcı tekrar deneyebilsin
+      setError(err instanceof Error ? err.message : "Siparişler silinemedi.");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkStatus = async (status: OrderStatus) => {
+    if (selection.count === 0) return;
+    if (
+      status === "cancelled" &&
+      !confirm(`${selection.count} sipariş iptal edilecek (${selectionSummary()}). Emin misiniz?`)
+    ) {
+      return;
+    }
+
+    setBulkBusy(true);
+    setError(null);
+    try {
+      const updated = await bulkUpdateOrderStatus(selection.selectedKeys, status, bulkMode);
+      const byId = new Map(updated.map((o) => [o.id, o]));
+      setOrders((prev) => prev.map((o) => byId.get(o.id) ?? o));
+      if (selected && byId.has(selected.id)) setSelected(byId.get(selected.id)!);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Durumlar güncellenemedi.");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkPDF = async () => {
+    if (selectedOrders.length === 0) return;
+    setBulkBusy(true);
+    setError(null);
+    try {
+      await downloadOrdersPDF(selectedOrders);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "PDF oluşturulamadı.");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkExcel = async () => {
+    if (selectedOrders.length === 0) return;
+    setBulkBusy(true);
+    setError(null);
+    try {
+      await downloadOrdersExcel(selectedOrders);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Excel oluşturulamadı.");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const renderOrderCard = (order: Order) => (
     <article
       key={order.id}
-      className={`admin-order-card admin-order-card--${order.status}`}
+      className={`admin-order-card admin-order-card--${order.status}${
+        selection.selectionMode && selection.isSelected(order.id) ? " is-selected" : ""
+      }`}
       role="button"
       tabIndex={0}
-      onClick={() => setSelected(order)}
+      onClick={() =>
+        selection.selectionMode ? selection.toggle(order.id) : setSelected(order)
+      }
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          setSelected(order);
+          if (selection.selectionMode) selection.toggle(order.id);
+          else setSelected(order);
         }
       }}
     >
       <div className="admin-order-card-inner">
         <div className="admin-order-card-top">
-          <div className="admin-order-card-avatar" aria-hidden>
-            {customerInitials(order)}
-          </div>
+          {selection.selectionMode ? (
+            <span className="admin-order-card-check">
+              <AdminCheckbox
+                checked={selection.isSelected(order.id)}
+                onChange={() => selection.toggle(order.id)}
+                label={`${order.orderCode ?? `#${order.id}`} seç`}
+                disabled={bulkBusy}
+                stopPropagation
+              />
+            </span>
+          ) : (
+            <div className="admin-order-card-avatar" aria-hidden>
+              {customerInitials(order)}
+            </div>
+          )}
           <div className="admin-order-card-info">
             <p className="admin-order-card-customer">{customerName(order)}</p>
             {order.phone ? (
@@ -238,7 +359,7 @@ export default function OrdersPage({ mode = "admin", channel }: OrdersPageProps)
         <div className="admin-order-card-footer">
           <time className="admin-order-card-date">{formatOrderCardDate(order.createdAt)}</time>
           <div className="admin-order-card-actions">
-            {order.status === "pending" && (
+            {!selection.selectionMode && order.status === "pending" && (
               <>
                 <button
                   type="button"
@@ -264,7 +385,7 @@ export default function OrdersPage({ mode = "admin", channel }: OrdersPageProps)
                 </button>
               </>
             )}
-            {order.status === "preparing" && (
+            {!selection.selectionMode && order.status === "preparing" && (
               <button
                 type="button"
                 className="admin-order-card-complete"
@@ -316,6 +437,17 @@ export default function OrdersPage({ mode = "admin", channel }: OrdersPageProps)
             );
           })}
         </div>
+        <button
+          type="button"
+          className={`admin-orders-select-toggle${
+            selection.selectionMode ? " is-active" : ""
+          } lg:hidden`}
+          aria-pressed={selection.selectionMode}
+          onClick={selection.toggleSelectionMode}
+          disabled={loading || bulkBusy}
+        >
+          {selection.selectionMode ? "Seçimi bitir" : "Seç"}
+        </button>
         <button
           type="button"
           className="admin-orders-refresh"
@@ -414,6 +546,15 @@ export default function OrdersPage({ mode = "admin", channel }: OrdersPageProps)
               <table className="admin-table admin-table-orders">
                 <thead>
                   <tr>
+                    <th className="admin-table-check">
+                      <AdminCheckbox
+                        checked={selection.allVisibleSelected}
+                        indeterminate={selection.someVisibleSelected}
+                        onChange={selection.toggleAll}
+                        label="Görünen tüm siparişleri seç"
+                        disabled={bulkBusy}
+                      />
+                    </th>
                     <th>Kod</th>
                     <th>Müşteri</th>
                     <th>Telefon</th>
@@ -428,9 +569,20 @@ export default function OrdersPage({ mode = "admin", channel }: OrdersPageProps)
                   {filteredOrders.map((order) => (
                     <tr
                       key={order.id}
-                      className="admin-table-row-clickable"
+                      className={`admin-table-row-clickable${
+                        selection.isSelected(order.id) ? " is-selected" : ""
+                      }`}
                       onClick={() => setSelected(order)}
                     >
+                      <td className="admin-table-check">
+                        <AdminCheckbox
+                          checked={selection.isSelected(order.id)}
+                          onChange={() => selection.toggle(order.id)}
+                          label={`${order.orderCode ?? `#${order.id}`} seç`}
+                          disabled={bulkBusy}
+                          stopPropagation
+                        />
+                      </td>
                       <td className="admin-table-id">{order.orderCode ?? `#${order.id}`}</td>
                       <td className="font-medium text-zinc-900">{customerName(order)}</td>
                       <td>{order.phone ?? "—"}</td>
@@ -484,6 +636,57 @@ export default function OrdersPage({ mode = "admin", channel }: OrdersPageProps)
           </>
         )}
       </section>
+
+      <BulkActionBar count={selection.count} onClear={selection.clear} busy={bulkBusy}>
+        <button
+          type="button"
+          className="bulk-btn"
+          disabled={bulkBusy}
+          onClick={() => void handleBulkStatus("preparing")}
+        >
+          Hazırlanıyor
+        </button>
+        <button
+          type="button"
+          className="bulk-btn bulk-btn-primary"
+          disabled={bulkBusy}
+          onClick={() => void handleBulkStatus("completed")}
+        >
+          Tamamlandı
+        </button>
+        <button
+          type="button"
+          className="bulk-btn"
+          disabled={bulkBusy}
+          onClick={() => void handleBulkStatus("cancelled")}
+        >
+          İptal et
+        </button>
+        <button
+          type="button"
+          className="bulk-btn"
+          disabled={bulkBusy}
+          onClick={() => void handleBulkPDF()}
+        >
+          PDF indir
+        </button>
+        <button
+          type="button"
+          className="bulk-btn"
+          disabled={bulkBusy}
+          onClick={() => void handleBulkExcel()}
+        >
+          Excel indir
+        </button>
+        <button
+          type="button"
+          className="bulk-btn bulk-btn-danger"
+          disabled={bulkBusy}
+          onClick={() => void handleBulkDelete()}
+        >
+          {bulkBusy ? "İşleniyor…" : "Sil"}
+        </button>
+      </BulkActionBar>
 
       <AdminModal
         open={Boolean(selected)}

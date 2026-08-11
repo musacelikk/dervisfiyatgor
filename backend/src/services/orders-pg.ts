@@ -191,6 +191,37 @@ export async function deleteOrder(id: number): Promise<void> {
   if (result.rowCount === 0) throw new Error("Sipariş bulunamadı.");
 }
 
+/** Toplu silme — tek sorgu, atomik. Bulunamayan id'ler sessizce atlanır. */
+export async function deleteOrders(ids: number[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const result = await getPool().query(`DELETE FROM orders WHERE id = ANY($1::int[])`, [
+    ids,
+  ]);
+  return result.rowCount ?? 0;
+}
+
+/** Toplu durum güncelleme — güncellenen siparişleri döner. */
+export async function updateOrdersStatus(
+  ids: number[],
+  status: OrderStatus
+): Promise<Order[]> {
+  if (!["pending", "preparing", "completed", "cancelled"].includes(status)) {
+    throw new Error("Geçersiz sipariş durumu.");
+  }
+  if (ids.length === 0) return [];
+  const { rows } = await getPool().query(
+    `UPDATE orders SET status = $1, updated_at = NOW()
+     WHERE id = ANY($2::int[]) RETURNING id`,
+    [status, ids]
+  );
+  const orders: Order[] = [];
+  for (const row of rows) {
+    const order = await getOrderById(Number(row.id));
+    if (order) orders.push(order);
+  }
+  return orders;
+}
+
 export async function getOrderCount(): Promise<number> {
   const { rows } = await getPool().query(`SELECT COUNT(*)::int AS count FROM orders`);
   return rows[0].count as number;

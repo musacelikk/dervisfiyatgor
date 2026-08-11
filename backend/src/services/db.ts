@@ -82,6 +82,11 @@ export async function deleteProduct(stockCode: string): Promise<void> {
   return sqlite.deleteProduct(stockCode);
 }
 
+export async function deleteProducts(stockCodes: string[]): Promise<number> {
+  if (isPostgres()) return pg.deleteProducts(stockCodes);
+  return sqlite.deleteProducts(stockCodes);
+}
+
 export async function clearProducts(): Promise<void> {
   if (isPostgres()) return pg.clearProducts();
   return sqlite.clearProducts();
