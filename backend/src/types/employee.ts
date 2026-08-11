@@ -12,6 +12,7 @@ export type EmployeeRow = {
   shift_code: string | null;
   honorific: string | null;
   shift: string | null;
+  attendance_exempt?: number | boolean | null;
   created_at: string;
   updated_at: string;
 };
@@ -28,6 +29,8 @@ export type EmployeePublic = {
   honorific: string | null;
   /** "1" | "2" — geç giriş kontrolü bu vardiyanın sınır saatine göre yapılır */
   shift: EmployeeShift;
+  /** true ise yoklama zorunluluğu yoktur: listede "Gelmedi" satırı üretilmez. */
+  attendanceExempt: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -42,6 +45,7 @@ export function rowToEmployee(row: EmployeeRow): EmployeePublic {
     shiftCode: row.shift_code ?? null,
     honorific: row.honorific ?? null,
     shift: normalizeShift(row.shift),
+    attendanceExempt: row.attendance_exempt === 1 || row.attendance_exempt === true,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

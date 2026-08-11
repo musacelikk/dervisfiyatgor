@@ -42,6 +42,7 @@ export async function createEmployee(input: {
   shiftCode?: string | null;
   honorific?: Honorific | null;
   shift?: EmployeeShift | null;
+  attendanceExempt?: boolean;
 }): Promise<EmployeePublic> {
   if (isPostgres()) return pg.createEmployee(input);
   return sqlite.createEmployee(input);
@@ -58,6 +59,7 @@ export async function updateEmployee(
     shiftCode?: string | null;
     honorific?: Honorific | null;
     shift?: EmployeeShift | null;
+    attendanceExempt?: boolean;
   }
 ): Promise<EmployeePublic> {
   if (isPostgres()) return pg.updateEmployee(id, input);

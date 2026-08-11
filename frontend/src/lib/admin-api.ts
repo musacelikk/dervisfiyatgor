@@ -109,6 +109,7 @@ export async function createEmployee(input: {
   shiftCode?: string | null;
   honorific?: "Bey" | "Hanım" | null;
   shift?: EmployeeShift;
+  attendanceExempt?: boolean;
 }): Promise<Employee> {
   const res = await fetch("/api/admin/employees", {
     method: "POST",
@@ -133,6 +134,7 @@ export async function updateEmployee(
     shiftCode: string | null;
     honorific: "Bey" | "Hanım" | null;
     shift: EmployeeShift;
+    attendanceExempt: boolean;
   }>
 ): Promise<Employee> {
   const res = await fetch(`/api/admin/employees/${id}`, {

@@ -11,6 +11,8 @@ export interface Employee {
   honorific: ShiftHonorific;
   /** "1" | "2" — geç giriş kontrolü bu vardiyanın sınır saatine göre yapılır */
   shift: EmployeeShift;
+  /** true ise yoklama zorunluluğu yoktur: Yoklama'da "Gelmedi" satırı üretilmez. */
+  attendanceExempt: boolean;
   createdAt: string;
   updatedAt: string;
 }

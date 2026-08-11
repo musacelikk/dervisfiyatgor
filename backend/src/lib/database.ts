@@ -234,6 +234,8 @@ async function migratePostgres(): Promise<void> {
       ON shift_denied_attempts(work_date DESC);
 
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS shift TEXT;
+    ALTER TABLE employees
+      ADD COLUMN IF NOT EXISTS attendance_exempt BOOLEAN NOT NULL DEFAULT FALSE;
 
     CREATE TABLE IF NOT EXISTS product_categories (
       id SERIAL PRIMARY KEY,

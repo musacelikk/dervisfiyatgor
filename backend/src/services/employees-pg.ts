@@ -11,7 +11,8 @@ import { rowToEmployee, type EmployeePublic, type EmployeeRow } from "../types/e
 import { verifyPassword } from "./employees-sqlite";
 
 const selectPublic = `
-  SELECT id, name, username, active, permissions, shift_code, honorific, shift, created_at, updated_at
+  SELECT id, name, username, active, permissions, shift_code, honorific, shift,
+         attendance_exempt, created_at, updated_at
   FROM employees
 `;
 
@@ -26,6 +27,7 @@ function mapRow(row: Record<string, unknown>): EmployeeRow {
     shift_code: row.shift_code == null ? null : String(row.shift_code),
     honorific: row.honorific == null ? null : String(row.honorific),
     shift: row.shift == null ? null : String(row.shift),
+    attendance_exempt: row.attendance_exempt === true || row.attendance_exempt === 1,
     created_at:
       row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     updated_at:
@@ -100,6 +102,7 @@ export async function createEmployee(input: {
   shiftCode?: string | null;
   honorific?: Honorific | null;
   shift?: EmployeeShift | null;
+  attendanceExempt?: boolean;
 }): Promise<EmployeePublic> {
   const name = input.name.trim();
   const username = input.username.trim().toLowerCase();
@@ -107,6 +110,7 @@ export async function createEmployee(input: {
   const shiftCode = (await validateShiftCode(input.shiftCode)) ?? null;
   const honorific = input.honorific ?? null;
   const shift = normalizeShift(input.shift);
+  const attendanceExempt = Boolean(input.attendanceExempt);
 
   if (name.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
   if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
@@ -118,10 +122,10 @@ export async function createEmployee(input: {
   if (existing) throw new Error("Bu kullanıcı adı zaten kayıtlı.");
 
   const { rows } = await getPool().query(
-    `INSERT INTO employees (name, username, password_hash, active, permissions, shift_code, honorific, shift, updated_at)
-     VALUES ($1, $2, $3, TRUE, $4, $5, $6, $7, NOW())
+    `INSERT INTO employees (name, username, password_hash, active, permissions, shift_code, honorific, shift, attendance_exempt, updated_at)
+     VALUES ($1, $2, $3, TRUE, $4, $5, $6, $7, $8, NOW())
      RETURNING id`,
-    [name, username, hashPassword(input.password), permissions, shiftCode, honorific, shift]
+    [name, username, hashPassword(input.password), permissions, shiftCode, honorific, shift, attendanceExempt]
   );
 
   const row = await findEmployeeById(Number(rows[0].id));
@@ -140,6 +144,7 @@ export async function updateEmployee(
     shiftCode?: string | null;
     honorific?: Honorific | null;
     shift?: EmployeeShift | null;
+    attendanceExempt?: boolean;
   }
 ): Promise<EmployeePublic> {
   const row = await findEmployeeById(id);
@@ -157,6 +162,10 @@ export async function updateEmployee(
       : row.shift_code;
   const honorific = input.honorific !== undefined ? input.honorific : row.honorific;
   const shift = input.shift !== undefined ? normalizeShift(input.shift) : normalizeShift(row.shift);
+  const attendanceExempt =
+    input.attendanceExempt !== undefined
+      ? input.attendanceExempt
+      : row.attendance_exempt === true || row.attendance_exempt === 1;
 
   if (name.length < 2) throw new Error("Ad en az 2 karakter olmalı.");
   if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
@@ -177,9 +186,10 @@ export async function updateEmployee(
   await getPool().query(
     `UPDATE employees
      SET name = $1, username = $2, password_hash = $3, active = $4, permissions = $5,
-         shift_code = $6, honorific = $7, shift = $8, updated_at = NOW()
-     WHERE id = $9`,
-    [name, username, passwordHash, active, permissions, shiftCode, honorific, shift, id]
+         shift_code = $6, honorific = $7, shift = $8, attendance_exempt = $9,
+         updated_at = NOW()
+     WHERE id = $10`,
+    [name, username, passwordHash, active, permissions, shiftCode, honorific, shift, attendanceExempt, id]
   );
 
   const updated = await findEmployeeById(id);

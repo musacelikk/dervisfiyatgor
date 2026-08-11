@@ -10395,3 +10395,71 @@ tr.stock-count-row-unchanged > td {
     font-size: 0.8125rem;
   }
 }
+
+/* ——————————————— Yoklama muafiyeti (Personel yönetimi) ——————————————— */
+
+.attendance-exempt-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 1.75rem;
+  border: 1px solid var(--adm-line, #e4e4e7);
+  border-radius: 999px;
+  background: var(--adm-card, #fff);
+  padding: 0 0.6rem;
+  font-family: var(--adm-display, inherit);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--adm-ink-2, #52525b);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.13s ease, color 0.13s ease, border-color 0.13s ease;
+}
+
+.attendance-exempt-toggle:hover {
+  border-color: #d0cabb;
+  background: var(--adm-card-tint, #fafaf9);
+  color: var(--adm-ink, #18181b);
+}
+
+.attendance-exempt-toggle.is-exempt {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.attendance-exempt-toggle.is-exempt:hover {
+  border-color: #a5b4fc;
+  background: #e0e7ff;
+  color: #312e81;
+}
+
+.attendance-exempt-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border: 1px solid var(--adm-line, #e4e4e7);
+  border-radius: 0.75rem;
+  background: var(--adm-paper, #fafaf9);
+  padding: 0.75rem 0.85rem;
+  cursor: pointer;
+}
+
+.attendance-exempt-field .admin-checkbox {
+  margin-top: 0.15rem;
+}
+
+.attendance-exempt-field b {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--adm-ink, #18181b);
+}
+
+.attendance-exempt-hint {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--adm-ink-3, #71717a);
+}

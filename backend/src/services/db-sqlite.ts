@@ -14,7 +14,7 @@ function resolveDataDir(): string {
 
 let sqliteDb: Database.Database | null = null;
 
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 const NAME_SEARCH_LIMIT = 30;
 
 function tableColumns(database: Database.Database, table: string): Set<string> {
@@ -240,6 +240,14 @@ function applyMigrationStep(database: Database.Database, fromVersion: number): v
           ON attendance_excuses(work_date);
       `);
       return;
+    case 17:
+      addColumnIfMissing(
+        database,
+        "employees",
+        "attendance_exempt",
+        "INTEGER NOT NULL DEFAULT 0"
+      );
+      return;
     default:
       return;
   }
@@ -314,6 +322,7 @@ export function initSqliteDatabase(): void {
       shift_code TEXT,
       honorific TEXT,
       shift TEXT,
+      attendance_exempt INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -334,6 +343,11 @@ export function initSqliteDatabase(): void {
   }
   if (!employeeCols.some((c) => c.name === "shift")) {
     sqliteDb.exec(`ALTER TABLE employees ADD COLUMN shift TEXT`);
+  }
+  if (!employeeCols.some((c) => c.name === "attendance_exempt")) {
+    sqliteDb.exec(
+      `ALTER TABLE employees ADD COLUMN attendance_exempt INTEGER NOT NULL DEFAULT 0`
+    );
   }
   sqliteDb.exec(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_shift_code

@@ -156,8 +156,9 @@ export default function AttendancePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    // Yoklamadan muaf personel listede hiç görünmediği için filtrede de yer almaz
     fetchEmployees()
-      .then((list) => setEmployees(list.filter((e) => e.active)))
+      .then((list) => setEmployees(list.filter((e) => e.active && !e.attendanceExempt)))
       .catch(() => setEmployees([]));
   }, []);
 

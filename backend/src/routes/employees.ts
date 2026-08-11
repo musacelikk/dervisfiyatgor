@@ -69,6 +69,10 @@ router.post("/", async (req, res) => {
       shiftCode,
       honorific,
       shift: parseShift(req.body ?? {}),
+      attendanceExempt:
+        typeof req.body?.attendanceExempt === "boolean"
+          ? req.body.attendanceExempt
+          : undefined,
     });
     logAuditFromContext(getAuditContext(req), {
       action: "employee.create",
@@ -106,6 +110,8 @@ router.patch("/:id", async (req, res) => {
       shiftCode,
       honorific,
       shift: parseShift(body),
+      attendanceExempt:
+        typeof body.attendanceExempt === "boolean" ? body.attendanceExempt : undefined,
     });
     const shiftCodeChanged =
       shiftCode !== undefined && shiftCode !== (before?.shift_code ?? null);

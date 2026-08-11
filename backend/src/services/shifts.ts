@@ -438,7 +438,9 @@ export async function listAttendance(filters: {
 }): Promise<AttendanceRow[]> {
   await closeExpiredShiftEntries();
 
-  const employees = (await listEmployees()).filter((e) => e.active);
+  // Yoklamadan muaf personel için satır üretilmez: "Gelmedi" görünmez,
+  // rapor ve özet sayılarına da girmez.
+  const employees = (await listEmployees()).filter((e) => e.active && !e.attendanceExempt);
   const targets = filters.employeeId
     ? employees.filter((e) => e.id === filters.employeeId)
     : employees;

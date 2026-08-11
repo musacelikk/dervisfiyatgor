@@ -31,6 +31,7 @@ const emptyForm = {
   shiftCode: "",
   honorific: "" as "" | "Bey" | "Hanım",
   shift: "1" as EmployeeShift,
+  attendanceExempt: false,
 };
 
 export default function EmployeesPage() {
@@ -71,6 +72,7 @@ export default function EmployeesPage() {
       shiftCode: employee.shiftCode ?? "",
       honorific: employee.honorific ?? "",
       shift: employee.shift ?? "1",
+      attendanceExempt: employee.attendanceExempt ?? false,
     });
     setFormMode({ type: "edit", employee });
   };
@@ -105,6 +107,7 @@ export default function EmployeesPage() {
           shiftCode: form.shiftCode || null,
           honorific: form.honorific || null,
           shift: form.shift,
+          attendanceExempt: form.attendanceExempt,
         });
       } else {
         const payload: Parameters<typeof updateEmployee>[1] = {
@@ -114,6 +117,7 @@ export default function EmployeesPage() {
           shiftCode: form.shiftCode || null,
           honorific: form.honorific || null,
           shift: form.shift,
+          attendanceExempt: form.attendanceExempt,
         };
         if (form.password) payload.password = form.password;
         await updateEmployee(formMode.employee.id, payload);
@@ -124,6 +128,19 @@ export default function EmployeesPage() {
       setError(err instanceof Error ? err.message : "Kaydedilemedi.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** Yoklama muafiyetini tek dokunuşla açar/kapatır. */
+  const toggleAttendanceExempt = async (employee: Employee) => {
+    setError(null);
+    try {
+      await updateEmployee(employee.id, {
+        attendanceExempt: !employee.attendanceExempt,
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Yoklama muafiyeti güncellenemedi.");
     }
   };
 
@@ -183,6 +200,7 @@ export default function EmployeesPage() {
                   <th>Kullanıcı adı</th>
                   <th>Mesai ID</th>
                   <th>Vardiya</th>
+                  <th>Yoklama</th>
                   <th>Yetkiler</th>
                   <th>Durum</th>
                   <th className="text-right">İşlemler</th>
@@ -198,6 +216,23 @@ export default function EmployeesPage() {
                     </td>
                     <td className="whitespace-nowrap text-xs text-zinc-600">
                       {SHIFT_LABELS[emp.shift ?? "1"]}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className={`attendance-exempt-toggle${
+                          emp.attendanceExempt ? " is-exempt" : ""
+                        }`}
+                        aria-pressed={emp.attendanceExempt}
+                        title={
+                          emp.attendanceExempt
+                            ? "Yoklamadan muaf — listede görünmez. Zorunlu yapmak için tıklayın."
+                            : "Yoklamaya tabi. Muaf tutmak için tıklayın."
+                        }
+                        onClick={() => void toggleAttendanceExempt(emp)}
+                      >
+                        {emp.attendanceExempt ? "Muaf" : "Zorunlu"}
+                      </button>
                     </td>
                     <td className="max-w-[14rem] text-xs text-zinc-600">
                       {permissionSummary(emp.permissions)}
@@ -258,13 +293,27 @@ export default function EmployeesPage() {
                       {SHIFT_LABELS[emp.shift ?? "1"]} · {permissionSummary(emp.permissions)}
                     </p>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                      emp.active ? "bg-emerald-50 text-emerald-800" : "bg-zinc-100 text-zinc-600"
-                    }`}
-                  >
-                    {emp.active ? "Aktif" : "Pasif"}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        emp.active
+                          ? "bg-emerald-50 text-emerald-800"
+                          : "bg-zinc-100 text-zinc-600"
+                      }`}
+                    >
+                      {emp.active ? "Aktif" : "Pasif"}
+                    </span>
+                    <button
+                      type="button"
+                      className={`attendance-exempt-toggle${
+                        emp.attendanceExempt ? " is-exempt" : ""
+                      }`}
+                      aria-pressed={emp.attendanceExempt}
+                      onClick={() => void toggleAttendanceExempt(emp)}
+                    >
+                      {emp.attendanceExempt ? "Yoklama: Muaf" : "Yoklama: Zorunlu"}
+                    </button>
+                  </div>
                 </div>
                 <div className="admin-action-icons mt-4">
                   <AdminIconButton label="Düzenle" onClick={() => openEdit(emp)}>
@@ -360,6 +409,27 @@ export default function EmployeesPage() {
                   Geç giriş kontrolü, Ayarlar&apos;da bu vardiya için belirlenen mesai
                   başlangıç saatine göre yapılır.
                 </p>
+              </div>
+
+              <div>
+                <label className="attendance-exempt-field">
+                  <input
+                    type="checkbox"
+                    className="admin-checkbox"
+                    checked={form.attendanceExempt}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, attendanceExempt: e.target.checked }))
+                    }
+                  />
+                  <span>
+                    <b>Yoklamadan muaf</b>
+                    <span className="attendance-exempt-hint">
+                      İşaretlenirse bu kişi Yoklama listesinde hiç görünmez;
+                      &quot;Gelmedi&quot; sayılmaz, rapor ve özet sayılarına girmez.
+                      Mesai girişi yapmasına engel değildir.
+                    </span>
+                  </span>
+                </label>
               </div>
 
               <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">
