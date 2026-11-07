@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { ADMIN_COOKIE, isValidAdminToken } from "@/lib/admin-session";
 import {
   ADMIN_LOGIN_PATH,
+  CORPORATE_PAGE,
   EMPLOYEE_LOGIN_PATH,
   SALES_PATH,
   SHIFT_PATH,
@@ -13,6 +14,7 @@ import {
   getStoreHost,
   hostsConfigured,
   isAdminPanelPath,
+  isCorporateHost,
   isEmployeePanelPath,
   isSalesPath,
   isShiftPath,
@@ -56,6 +58,14 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
     return null;
   }
 
+  // www / kök alan adı → kurumsal tanıtım sitesi
+  if (isCorporateHost(host)) {
+    if (pathname === "/") {
+      return NextResponse.rewrite(new URL(CORPORATE_PAGE, request.url));
+    }
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
   const isOtherFrontHost = (h: string) =>
     (storeHost && h === storeHost) || (salesHost && h === salesHost) || (shiftHost && h === shiftHost);
 
@@ -86,6 +96,11 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
     }
   }
 
+  // fiyatgor → fiyat gör artık personel subdomain'inde
+  if (storeHost && host === storeHost && employeeHost) {
+    return redirectToHost(employeeHost, request, "/");
+  }
+
   // fiyatgor → yalnızca mağaza (/)
   if (storeHost && host === storeHost) {
     if (
@@ -110,10 +125,10 @@ function applySubdomainRouting(request: NextRequest): NextResponse | null {
     return null;
   }
 
-  // personel → yalnızca /yonetici/*
+  // personel → kökte fiyat gör (barkod okutma), panel /yonetici/*
   if (employeeHost && host === employeeHost) {
     if (pathname === "/") {
-      return NextResponse.redirect(new URL(EMPLOYEE_LOGIN_PATH, request.url));
+      return null;
     }
     if (!isEmployeePanelPath(pathname)) {
       return NextResponse.redirect(new URL(EMPLOYEE_LOGIN_PATH, request.url));

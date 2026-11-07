@@ -30,7 +30,22 @@ export function getShiftHost(): string | undefined {
   return v || undefined;
 }
 
-/** fiyatgor subdomain — müşteri mağazası */
+/** www / kök alan adı — kurumsal tanıtım sitesi (public/kurumsal.html) */
+export function getCorporateHosts(): string[] {
+  const raw = process.env.NEXT_PUBLIC_CORPORATE_HOSTS ?? "dervisplastik.com,www.dervisplastik.com";
+  return raw
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export const CORPORATE_PAGE = "/kurumsal.html";
+
+export function isCorporateHost(host: string): boolean {
+  return getCorporateHosts().includes(normalizeHost(host));
+}
+
+/** Fiyat gör (barkod okutma) ekranı — personel subdomain'inin kökünde */
 export const STORE_PATH = "/";
 
 /** admin subdomain — admin paneli rotaları (/admin/*) */
@@ -104,8 +119,9 @@ export function externalUrl(host: string | undefined, path: string): string {
   return `https://${host}${p}`;
 }
 
+/** Fiyat gör ekranı personel subdomain'inde açılır; yoksa eski fiyatgor host'u. */
 export function getStoreUrl(path = STORE_PATH): string {
-  return externalUrl(getStoreHost(), path);
+  return externalUrl(getEmployeeHost() ?? getStoreHost(), path);
 }
 
 export function getSalesUrl(path = SALES_PATH): string {
@@ -122,7 +138,6 @@ export function shouldShowStoreLink(currentHost?: string): boolean {
   if (!currentHost) return false;
   return (
     !isAdminHost(currentHost) &&
-    !isEmployeeHost(currentHost) &&
     !isSalesHost(currentHost) &&
     !isShiftHost(currentHost)
   );

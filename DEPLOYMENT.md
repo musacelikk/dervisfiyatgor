@@ -4,9 +4,10 @@
 
 | Subdomain | Amaç | Platform |
 |-----------|------|----------|
-| `fiyatgor.dervisplastik.com` | Müşteri mağaza (fiyat gör) | Vercel (frontend) |
+| `www.dervisplastik.com`, `dervisplastik.com` | Kurumsal tanıtım sitesi (`public/kurumsal.html`) | Vercel (frontend) |
+| `fiyatgor.dervisplastik.com` | Eski adres → `personel.dervisplastik.com`'a yönlenir | Vercel (frontend) |
 | `admin.dervisplastik.com` | Admin paneli | Vercel (frontend) |
-| `personel.dervisplastik.com` | Çalışan paneli | Vercel (frontend) |
+| `personel.dervisplastik.com` | Kökte fiyat gör (barkod okutma), `/yonetici` çalışan paneli | Vercel (frontend) |
 | `satis.dervisplastik.com` | Ürün kataloğu (resimli) | Vercel (frontend) |
 | `giris.dervisplastik.com` | Personel mesai girişi (konum doğrulamalı) | Vercel (frontend) |
 | `dervisplastik.up.railway.app` | Backend API | Railway (public URL) |
